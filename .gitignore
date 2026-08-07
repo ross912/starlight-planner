@@ -1,0 +1,8 @@
+node_modules/
+dist/
+dist.pre-*/
+server/data/
+*.log
+.DS_Store
+*.pre-*CST
+*.bak*
