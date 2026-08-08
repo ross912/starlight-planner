@@ -1,12 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
-import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2, TrendingDown, TrendingUp, Wallet } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2, TrendingDown, TrendingUp, Wallet, Target } from 'lucide-react'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { api } from '../lib/api'
 import { EXPENSE_CATS, INCOME_CATS, fenToYuan, txCatOf } from '../lib/constants'
 import type { Transaction, TxStats, TxType } from '../types'
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
+
+/** 金额缩略：超过 1 万用 "w" 表示 */
+function shortAmount(fen: number): string {
+  const yuan = fen / 100
+  if (yuan >= 10000) return (yuan / 10000).toFixed(1).replace(/\.0$/, '') + 'w'
+  return yuan.toFixed(yuan % 1 === 0 ? 0 : 2)
+}
 
 export default function MoneyPage() {
   const [month, setMonth] = useState(() => format(new Date(), 'yyyy-MM'))
@@ -15,10 +22,20 @@ export default function MoneyPage() {
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
+  // ---- 预算 ----
+  const [budget, setBudget] = useState<{ id: number; month: string; amount: number } | null>(null)
+  const [editingBudget, setEditingBudget] = useState(false)
+  const [budgetInput, setBudgetInput] = useState('')
+
   const load = useCallback(async () => {
-    const [l, s] = await Promise.all([api.listTransactions(month), api.transactionStats(month)])
+    const [l, s, b] = await Promise.all([
+      api.listTransactions(month),
+      api.transactionStats(month),
+      api.getBudget(month),
+    ])
     setList(l)
     setStats(s)
+    setBudget(b)
   }, [month])
 
   useEffect(() => {
@@ -37,6 +54,20 @@ export default function MoneyPage() {
     if (!window.confirm(`删除这笔${tx.type === 'expense' ? '支出' : '收入'}「¥${fenToYuan(tx.amount)}」？`)) return
     await api.deleteTransaction(tx.id)
     load()
+  }
+
+  // ---- 保存预算 ----
+  const saveBudget = async () => {
+    const v = Number(budgetInput)
+    if (!Number.isFinite(v) || v <= 0) return
+    await api.saveBudget(month, Math.round(v * 100))
+    setBudget({ id: budget?.id ?? 0, month, amount: Math.round(v * 100) })
+    setEditingBudget(false)
+  }
+
+  const startEditBudget = () => {
+    setBudgetInput(budget ? String(budget.amount / 100) : '')
+    setEditingBudget(true)
   }
 
   // ---- 日历数据 ----
@@ -93,6 +124,12 @@ export default function MoneyPage() {
   const balance = (stats?.income ?? 0) - (stats?.expense ?? 0)
   const [y, mo] = month.split('-')
 
+  // ---- 预算进度 ----
+  const spent = stats?.expense ?? 0
+  const budgetAmount = budget?.amount ?? 0
+  const budgetPct = budgetAmount > 0 ? Math.min(100, Math.round((spent / budgetAmount) * 100)) : 0
+  const overBudget = budgetAmount > 0 && spent > budgetAmount
+
   return (
     <div className="space-y-5">
       {/* ---- 头部：月份导航 ---- */}
@@ -118,12 +155,12 @@ export default function MoneyPage() {
       </header>
 
       {/* ---- 月度汇总 ---- */}
-      <div className="grid grid-cols-3 gap-2.5 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
         <div className="warm-card px-3.5 py-3 sm:px-5 sm:py-4">
           <p className="text-xs text-stone-500 flex items-center gap-1.5">
             <TrendingDown size={13} className="text-rose-400" /> 本月支出
           </p>
-          <p className="mt-1.5 sm:mt-2 text-lg sm:text-2xl font-bold text-rose-500">¥{fenToYuan(stats?.expense ?? 0)}</p>
+          <p className="mt-1.5 sm:mt-2 text-lg sm:text-2xl font-bold text-rose-500">¥{fenToYuan(spent)}</p>
         </div>
         <div className="warm-card px-3.5 py-3 sm:px-5 sm:py-4">
           <p className="text-xs text-stone-500 flex items-center gap-1.5">
@@ -139,7 +176,68 @@ export default function MoneyPage() {
             {balance < 0 && '-'}¥{fenToYuan(Math.abs(balance))}
           </p>
         </div>
+        {/* 预算卡片 */}
+        <div className="warm-card px-3.5 py-3 sm:px-5 sm:py-4">
+          <p className="text-xs text-stone-500 flex items-center gap-1.5">
+            <Target size={13} className="text-violet-400" /> 本月预算
+          </p>
+          {editingBudget ? (
+            <div className="mt-1.5 flex items-center gap-1.5">
+              <span className="text-sm text-stone-400">¥</span>
+              <input
+                className="warm-input w-20 py-1 text-sm font-bold"
+                autoFocus
+                inputMode="decimal"
+                value={budgetInput}
+                onChange={(e) => setBudgetInput(e.target.value.replace(/[^\d.]/g, ''))}
+                onKeyDown={(e) => { if (e.key === 'Enter') saveBudget(); if (e.key === 'Escape') setEditingBudget(false) }}
+                placeholder="0"
+              />
+              <button className="warm-btn-ghost text-xs !px-2" onClick={saveBudget}>确定</button>
+            </div>
+          ) : (
+            <button className="mt-1.5 sm:mt-2 group flex items-center gap-1" onClick={startEditBudget}>
+              <span className={`text-lg sm:text-2xl font-bold ${budgetAmount > 0 ? 'text-violet-600' : 'text-stone-300'}`}>
+                {budgetAmount > 0 ? `¥${fenToYuan(budgetAmount)}` : '未设置'}
+              </span>
+              <Pencil size={12} className="text-stone-300 group-hover:text-stone-500 transition" />
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* ---- 预算进度条 ---- */}
+      {budgetAmount > 0 && (
+        <div className="warm-card px-4 py-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs text-stone-500">
+              已花费 <span className={overBudget ? 'text-rose-500 font-semibold' : 'text-stone-700 font-medium'}>¥{fenToYuan(spent)}</span>
+            </span>
+            <span className={`text-xs font-medium ${overBudget ? 'text-rose-500' : budgetPct >= 80 ? 'text-amber-600' : 'text-emerald-600'}`}>
+              {budgetPct}%
+              {overBudget && ' 已超支'}
+            </span>
+          </div>
+          <div className="h-2.5 rounded-full bg-stone-100 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                overBudget ? 'bg-rose-400' : budgetPct >= 80 ? 'bg-amber-400' : 'bg-emerald-400'
+              }`}
+              style={{ width: `${Math.min(100, (spent / budgetAmount) * 100)}%` }}
+            />
+          </div>
+          {overBudget && (
+            <p className="mt-1.5 text-xs text-rose-400">
+              超出预算 ¥{fenToYuan(spent - budgetAmount)}
+            </p>
+          )}
+          {budgetAmount > 0 && !overBudget && (
+            <p className="mt-1.5 text-xs text-stone-400">
+              剩余 ¥{fenToYuan(budgetAmount - spent)} 可用
+            </p>
+          )}
+        </div>
+      )}
 
       {/* ---- 记一笔 ---- */}
       <AddForm onSaved={load} />
@@ -227,12 +325,16 @@ export default function MoneyPage() {
                     {cell.day}
                   </span>
                   {cell.hasData && (
-                    <div className="flex flex-col items-center leading-tight mt-0.5">
+                    <div className="flex flex-col items-center leading-tight mt-0.5 w-full px-0.5">
                       {hasExpense && (
-                        <span className="text-[9px] sm:text-[10px] text-rose-400">-¥{fenToYuan(cell.expense)}</span>
+                        <span className="text-[9px] sm:text-[10px] text-rose-400 whitespace-nowrap max-w-full truncate">
+                          -¥{shortAmount(cell.expense)}
+                        </span>
                       )}
                       {hasIncome && (
-                        <span className="text-[9px] sm:text-[10px] text-emerald-500">+¥{fenToYuan(cell.income)}</span>
+                        <span className="text-[9px] sm:text-[10px] text-emerald-500 whitespace-nowrap max-w-full truncate">
+                          +¥{shortAmount(cell.income)}
+                        </span>
                       )}
                     </div>
                   )}
@@ -284,7 +386,7 @@ export default function MoneyPage() {
                         {tx.note && <p className="text-xs text-stone-400 truncate">{tx.note}</p>}
                       </div>
                       <span
-                        className={`text-sm font-semibold ${tx.type === 'expense' ? 'text-rose-500' : 'text-emerald-600'}`}
+                        className={`text-sm font-semibold whitespace-nowrap ${tx.type === 'expense' ? 'text-rose-500' : 'text-emerald-600'}`}
                       >
                         {tx.type === 'expense' ? '-' : '+'}¥{fenToYuan(tx.amount)}
                       </span>

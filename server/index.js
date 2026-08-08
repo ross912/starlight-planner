@@ -55,6 +55,15 @@ CREATE TABLE IF NOT EXISTS transactions (
 );
 CREATE INDEX IF NOT EXISTS idx_tx_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_tx_type ON transactions(type);
+CREATE TABLE IF NOT EXISTS budgets (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL,
+  month      TEXT NOT NULL,              -- yyyy-MM
+  amount     INTEGER NOT NULL,           -- 预算金额，单位：分
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(user_id, month)
+);
 CREATE TABLE IF NOT EXISTS books (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   title        TEXT NOT NULL,
@@ -285,7 +294,7 @@ if ((db.prepare('SELECT COUNT(*) AS c FROM users').get()).c === 0) {
   }
   const uid = Number(db.prepare('INSERT INTO users (username, password_hash, password_algo, salt, created_at) VALUES (?,?,?,?,?)')
     .run(ownerName, hash, algo, salt, now()).lastInsertRowid)
-  for (const t of ['diaries', 'todos', 'transactions', 'books', 'exercises', 'workouts', 'sessions']) {
+  for (const t of ['diaries', 'todos', 'transactions', 'books', 'budgets', 'exercises', 'workouts', 'sessions']) {
     db.prepare(`UPDATE ${t} SET user_id = ? WHERE user_id IS NULL`).run(uid)
   }
 }
@@ -666,6 +675,27 @@ app.get('/api/transactions/stats', (req, res) => {
   ).all(uid, like)
   res.json({ month, expense: sum('expense'), income: sum('income'), byCategory, daily })
 })
+
+// ---------------- 预算 ----------------
+app.get('/api/budgets', (req, res) => {
+  const month = req.query.month || fmtDate(new Date()).slice(0, 7)
+  const row = db.prepare('SELECT * FROM budgets WHERE user_id = ? AND month = ?').get(req.userId, month)
+  res.json(row ? { id: row.id, month: row.month, amount: row.amount } : null)
+})
+
+app.put('/api/budgets', (req, res) => {
+  const { month, amount } = req.body
+  const uid = req.userId
+  const now = fmtDate(new Date())
+  const existing = db.prepare('SELECT id FROM budgets WHERE user_id = ? AND month = ?').get(uid, month)
+  if (existing) {
+    db.prepare('UPDATE budgets SET amount = ?, updated_at = ? WHERE id = ?').run(amount, now, existing.id)
+  } else {
+    db.prepare('INSERT INTO budgets (user_id, month, amount, created_at, updated_at) VALUES (?,?,?,?,?)').run(uid, month, amount, now, now)
+  }
+  res.json({ ok: true, month, amount })
+})
+
 
 // ---------------- 阅读 ----------------
 

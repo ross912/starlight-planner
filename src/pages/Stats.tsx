@@ -149,7 +149,7 @@ export default function StatsPage() {
                     <span className="text-stone-700">
                       {def.icon} {def.label}
                     </span>
-                    <span className="text-xs text-stone-400">
+                    <span className="text-xs text-stone-400 whitespace-nowrap">
                       {s.done}/{s.total} · <span className="text-orange-700 font-semibold">{pct}%</span>
                     </span>
                   </div>
@@ -272,15 +272,15 @@ export default function StatsPage() {
         <div className="grid grid-cols-3 gap-4">
           <div className="warm-card px-3.5 py-3 sm:px-5 sm:py-4">
             <p className="text-xs text-stone-500">本年支出</p>
-            <p className="mt-2 text-xl md:text-2xl font-bold text-rose-500">¥{fenToYuan(stats.money.yearExpense)}</p>
+            <p className="mt-2 text-xl md:text-2xl font-bold text-rose-500 whitespace-nowrap">¥{fenToYuan(stats.money.yearExpense)}</p>
           </div>
           <div className="warm-card px-3.5 py-3 sm:px-5 sm:py-4">
             <p className="text-xs text-stone-500">本年收入</p>
-            <p className="mt-2 text-xl md:text-2xl font-bold text-emerald-600">¥{fenToYuan(stats.money.yearIncome)}</p>
+            <p className="mt-2 text-xl md:text-2xl font-bold text-emerald-600 whitespace-nowrap">¥{fenToYuan(stats.money.yearIncome)}</p>
           </div>
           <div className="warm-card px-3.5 py-3 sm:px-5 sm:py-4">
             <p className="text-xs text-stone-500">本年结余</p>
-            <p className={`mt-2 text-xl md:text-2xl font-bold ${stats.money.yearIncome - stats.money.yearExpense >= 0 ? 'text-orange-700' : 'text-rose-500'}`}>
+            <p className={`mt-2 text-xl md:text-2xl font-bold whitespace-nowrap ${stats.money.yearIncome - stats.money.yearExpense >= 0 ? 'text-orange-700' : 'text-rose-500'}`}>
               {stats.money.yearIncome - stats.money.yearExpense < 0 && '-'}¥{fenToYuan(Math.abs(stats.money.yearIncome - stats.money.yearExpense))}
             </p>
           </div>
@@ -321,7 +321,7 @@ export default function StatsPage() {
                     <div key={c.category}>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-stone-700">{cat?.emoji} {cat?.label ?? c.category}</span>
-                        <span className="text-xs text-stone-400">¥{fenToYuan(c.total)}</span>
+                        <span className="text-xs text-stone-400 whitespace-nowrap">¥{fenToYuan(c.total)}</span>
                       </div>
                       <div className="mt-1 h-2 rounded-full bg-orange-100 overflow-hidden">
                         <div
