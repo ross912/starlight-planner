@@ -312,27 +312,31 @@ export default function MoneyPage() {
                   className={`
                     aspect-square rounded-lg flex flex-col items-center justify-center transition text-[11px] sm:text-xs
                     ${isSelected
-                      ? 'bg-orange-100 ring-2 ring-orange-300 scale-95'
+                      ? 'bg-orange-200 ring-2 ring-orange-400 scale-95'
                       : isToday
-                        ? 'bg-amber-50 ring-1 ring-amber-200'
+                        ? 'bg-amber-100 ring-1 ring-amber-300'
                         : cell.hasData
-                          ? 'bg-stone-50 hover:bg-orange-50'
-                          : 'hover:bg-stone-50'
+                          ? hasExpense && !hasIncome
+                            ? 'bg-rose-50 hover:bg-rose-100'
+                            : hasIncome && !hasExpense
+                              ? 'bg-emerald-50 hover:bg-emerald-100'
+                              : 'bg-amber-50 hover:bg-amber-100'
+                          : 'hover:bg-stone-100'
                     }
                   `}
                 >
-                  <span className={`font-medium ${isToday ? 'text-orange-600' : 'text-stone-600'}`}>
+                  <span className={`font-medium ${isToday ? 'text-orange-700' : 'text-stone-700'}`}>
                     {cell.day}
                   </span>
                   {cell.hasData && (
                     <div className="flex flex-col items-center leading-tight mt-0.5 w-full px-0.5">
                       {hasExpense && (
-                        <span className="text-[9px] sm:text-[10px] text-rose-400 whitespace-nowrap max-w-full truncate">
+                        <span className="text-[9px] sm:text-[10px] text-rose-600 font-medium whitespace-nowrap max-w-full truncate">
                           -¥{shortAmount(cell.expense)}
                         </span>
                       )}
                       {hasIncome && (
-                        <span className="text-[9px] sm:text-[10px] text-emerald-500 whitespace-nowrap max-w-full truncate">
+                        <span className="text-[9px] sm:text-[10px] text-emerald-600 font-medium whitespace-nowrap max-w-full truncate">
                           +¥{shortAmount(cell.income)}
                         </span>
                       )}
