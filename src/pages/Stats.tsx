@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { api } from '../lib/api'
 import StatCard from '../components/StatCard'
-import { LEVEL_DEFS, fenToYuan, moodOf, txCatOf } from '../lib/constants'
+import { fenToYuan, moodOf, txCatOf } from '../lib/constants'
 import type { StatsOverview } from '../types'
 
 export default function StatsPage() {
@@ -62,24 +62,19 @@ export default function StatsPage() {
         <p className="mt-1 text-sm text-stone-500">坚持的痕迹，看得见。</p>
       </header>
 
-      {/* 总览卡片 */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
-        <StatCard icon="📖" label="日记总数" value={stats.diary.total} unit="篇" />
-        <StatCard icon="🔥" label="连续写日记" value={stats.diary.streak} unit="天" />
-        <StatCard icon="✅" label="任务总数" value={totals.total} unit="项" />
-        <StatCard icon="🎯" label="总完成率" value={totals.rate} unit="%" />
-        <StatCard icon="⚡" label="连续完成日计划" value={stats.todos.taskStreak} unit="天" />
-        <Link to="/reading" className="warm-card px-3.5 py-3 sm:px-5 sm:py-4 block transition hover:-translate-y-0.5 hover:shadow-[0_6px_20px_-8px_rgba(194,120,40,0.4)]">
-          <p className="text-xs text-stone-500 flex items-center gap-1.5">
-            <span>📚</span>
-            今年读完
-          </p>
-          <p className="mt-2 text-2xl font-bold text-orange-900">
-            {stats.books.doneThisYear}
-            <span className="ml-1 text-sm font-normal text-stone-400">本</span>
-            {stats.books.reading > 0 && <span className="ml-2 text-xs font-normal text-orange-600">在读 {stats.books.reading}</span>}
-          </p>
-        </Link>
+      {/* 年度概览条 */}
+      <div className="warm-card px-5 py-3 text-sm space-y-2">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
+          <span className="font-semibold text-orange-950">{stats.money.year} 年</span>
+          <span className="text-stone-600">📖 日记 <b className="text-orange-700">{stats.diary.total}</b> 篇</span>
+          <span className="text-stone-600">💪 运动 <b className="text-orange-700">{stats.fitness.totalSessions}</b> 条</span>
+          <span className="text-stone-600">📚 读完 <b className="text-orange-700">{stats.books.doneThisYear}</b> 本</span>
+          <span className="text-stone-600">💰 支出 <b className="text-rose-500 whitespace-nowrap">¥{fenToYuan(stats.money.yearExpense)}</b></span>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-orange-100 pt-2">
+          <span className="text-stone-600">📝 计划 · 完成量 <b className="text-orange-700">{totals.done}</b> 项</span>
+          <span className="text-stone-600">日计划完成率 <b className="text-orange-700">{stats.todos.levelStats.daily?.total ? Math.round((stats.todos.levelStats.daily.done / stats.todos.levelStats.daily.total) * 100) : 0}%</b></span>
+        </div>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2">
@@ -135,102 +130,71 @@ export default function StatsPage() {
         </section>
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        {/* 五层完成率 */}
-        <section className="warm-card p-4 sm:p-5">
-          <h3 className="font-semibold text-orange-950">五层计划完成率</h3>
-          <div className="mt-4 space-y-3.5">
-            {LEVEL_DEFS.map((def) => {
-              const s = stats.todos.levelStats[def.key]
-              const pct = s.total ? Math.round((s.done / s.total) * 100) : 0
-              return (
-                <div key={def.key}>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-stone-700">
-                      {def.icon} {def.label}
-                    </span>
-                    <span className="text-xs text-stone-400 whitespace-nowrap">
-                      {s.done}/{s.total} · <span className="text-orange-700 font-semibold">{pct}%</span>
-                    </span>
-                  </div>
-                  <div className="mt-1.5 h-2 rounded-full bg-orange-100 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-700"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </section>
-
-        {/* 日记热力图 */}
-        <section className="warm-card p-4 sm:p-5">
-          <h3 className="font-semibold text-orange-950">近 12 周 · 日记打卡</h3>
-          <div className="mt-4 flex gap-1 overflow-x-auto pb-2">
-            {heatColumns.map((col, i) => (
-              <div key={i} className="flex flex-col gap-1">
-                {col.map((cell, j) =>
-                  cell ? (
-                    <div
-                      key={j}
-                      title={cell.date}
-                      className={`h-4 w-4 rounded-[4px] transition ${
-                        cell.has ? 'bg-gradient-to-br from-amber-400 to-orange-500' : 'bg-orange-100/70'
-                      }`}
-                    />
-                  ) : (
-                    <div key={j} className="h-4 w-4" />
-                  ),
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="mt-1 flex items-center justify-end gap-1.5 text-xs text-stone-400">
-            <span>未写</span>
-            <div className="h-3 w-3 rounded-[3px] bg-orange-100/70" />
-            <div className="h-3 w-3 rounded-[3px] bg-gradient-to-br from-amber-400 to-orange-500" />
-            <span>已写</span>
-          </div>
-        </section>
-      </div>
+      {/* 日记热力图 */}
+      <section className="warm-card p-4 sm:p-5">
+        <h3 className="font-semibold text-orange-950">近 12 周 · 日记打卡</h3>
+        <div className="mt-4 flex gap-1 overflow-x-auto pb-2">
+          {heatColumns.map((col, i) => (
+            <div key={i} className="flex flex-col gap-1">
+              {col.map((cell, j) =>
+                cell ? (
+                  <div
+                    key={j}
+                    title={cell.date}
+                    className={`h-4 w-4 rounded-[4px] transition ${
+                      cell.has ? 'bg-gradient-to-br from-amber-400 to-orange-500' : 'bg-orange-100/70'
+                    }`}
+                  />
+                ) : (
+                  <div key={j} className="h-4 w-4" />
+                ),
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="mt-1 flex items-center justify-end gap-1.5 text-xs text-stone-400">
+          <span>未写</span>
+          <div className="h-3 w-3 rounded-[3px] bg-orange-100/70" />
+          <div className="h-3 w-3 rounded-[3px] bg-gradient-to-br from-amber-400 to-orange-500" />
+          <span>已写</span>
+        </div>
+      </section>
 
       {/* 健身汇总 */}
       <section className="space-y-5">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-orange-950">💪 健身汇总</h3>
-          <Link to="/fitness" className="text-xs text-orange-600 hover:text-orange-800">去健身 →</Link>
+        <h3 className="text-lg font-bold text-orange-950">💪 健身汇总</h3>
+        <Link to="/fitness" className="text-xs text-orange-600 hover:text-orange-800">去健身 →</Link>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon="✅" label="本月运动" value={stats.fitness.month.days} unit="天" />
-          <StatCard icon="🏃" label="本月跑步" value={Number(stats.fitness.month.runKm.toFixed(1))} unit="公里" />
-          <StatCard icon="🏸" label="本月羽毛球" value={stats.fitness.month.badmintonMin} unit="分钟" />
-          <StatCard icon="📅" label="运动记录" value={stats.fitness.monthSessions} unit="条" />
+        <StatCard icon="✅" label="本月运动" value={stats.fitness.month.days} unit="天" />
+        <StatCard icon="🏃" label="本月跑步" value={Number(stats.fitness.month.runKm.toFixed(1))} unit="公里" />
+        <StatCard icon="🏸" label="本月羽毛球" value={stats.fitness.month.badmintonMin} unit="分钟" />
+        <StatCard icon="📅" label="运动记录" value={stats.fitness.monthSessions} unit="条" />
         </div>
 
         <div className="grid gap-5 lg:grid-cols-2">
-          {/* 近 14 天运动打卡 */}
-          <section className="warm-card p-4 sm:p-5">
-            <h3 className="font-semibold text-orange-950">近 14 天 · 运动打卡</h3>
-            <div className="mt-4 h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.fitness.trend.map((t) => ({ ...t, label: `${Number(t.date.slice(5, 7))}/${Number(t.date.slice(8, 10))}` }))} barSize={14}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f5e0c3" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#a8a29e' }} tickLine={false} axisLine={{ stroke: '#f5e0c3' }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#a8a29e' }} tickLine={false} axisLine={false} width={28} />
-                  <Tooltip
-                    cursor={{ fill: 'rgba(251,191,36,0.12)' }}
-                    contentStyle={{ borderRadius: 12, border: '1px solid #fde8cd', fontSize: 12 }}
-                    formatter={(v: number) => [`${v} 条`, '运动记录']}
-                    labelFormatter={(l) => `日期 ${l}`}
-                  />
-                  <Bar dataKey="count" fill="#f97316" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </section>
+        {/* 近 14 天运动打卡 */}
+        <section className="warm-card p-4 sm:p-5">
+          <h3 className="font-semibold text-orange-950">近 14 天 · 运动打卡</h3>
+          <div className="mt-4 h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={stats.fitness.trend.map((t) => ({ ...t, label: `${Number(t.date.slice(5, 7))}/${Number(t.date.slice(8, 10))}` }))} barSize={14}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f5e0c3" vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#a8a29e' }} tickLine={false} axisLine={{ stroke: '#f5e0c3' }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#a8a29e' }} tickLine={false} axisLine={false} width={28} />
+                <Tooltip
+                  cursor={{ fill: 'rgba(251,191,36,0.12)' }}
+                  contentStyle={{ borderRadius: 12, border: '1px solid #fde8cd', fontSize: 12 }}
+                  formatter={(v: number) => [`${v} 条`, '运动记录']}
+                  labelFormatter={(l) => `日期 ${l}`}
+                />
+                <Bar dataKey="count" fill="#f97316" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+      </section>
 
           {/* 力量 PR 榜 */}
           <section className="warm-card p-4 sm:p-5">
