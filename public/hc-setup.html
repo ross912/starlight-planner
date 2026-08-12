@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>星光手帐 · 健康数据接入指南</title>
+<style>
+  :root{
+    --bg:#0b1020; --card:#131a30; --card2:#1a2340; --line:#2a3560;
+    --txt:#e8ecff; --sub:#9aa4c8; --dim:#6b76a0;
+    --acc:#7aa2ff; --acc2:#b388ff; --ok:#3ddc97; --warn:#ffb454; --bad:#ff6b81;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif;line-height:1.7;padding:0 0 60px;background-image:radial-gradient(1200px 500px at 80% -10%,rgba(122,162,255,.08),transparent),radial-gradient(800px 400px at -10% 20%,rgba(179,136,255,.07),transparent)}
+  .wrap{max-width:640px;margin:0 auto;padding:28px 20px 0}
+  header{text-align:center;padding:26px 0 20px}
+  .logo{display:inline-flex;align-items:center;gap:10px;margin-bottom:14px}
+  .logo img{width:44px;height:44px;border-radius:11px;box-shadow:0 4px 18px rgba(122,162,255,.35)}
+  h1{font-size:22px;font-weight:700;letter-spacing:.5px}
+  .sub{color:var(--sub);font-size:14px;margin-top:6px}
+  .flow{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;margin:22px 0 6px;font-size:12px;color:var(--sub)}
+  .flow .node{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 12px;color:var(--txt);font-weight:600;white-space:nowrap}
+  .flow .node.hot{border-color:var(--acc);color:var(--acc);box-shadow:0 0 14px rgba(122,162,255,.15)}
+  .flow .arrow{color:var(--dim)}
+  .hint{background:linear-gradient(135deg,rgba(122,162,255,.12),rgba(179,136,255,.10));border:1px solid var(--line);border-radius:14px;padding:14px 16px;font-size:13.5px;color:var(--txt);margin:16px 0 4px}
+  .hint b{color:var(--acc)}
+  section{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 18px 16px;margin-top:18px}
+  .stepnum{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#0b1020;font-weight:800;font-size:14px;margin-right:10px;vertical-align:-2px}
+  h2{font-size:17px;font-weight:700;display:flex;align-items:center;margin-bottom:12px}
+  h2 .tt{flex:1}
+  .done{color:var(--ok);font-size:13px;font-weight:600}
+  ol{padding-left:20px}
+  li{margin:9px 0;font-size:14.5px;color:var(--txt)}
+  li b{color:#fff}
+  .path{display:inline-block;background:var(--card2);border:1px solid var(--line);border-radius:7px;padding:1px 8px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--acc);word-break:break-all}
+  .note{background:rgba(255,180,84,.08);border-left:3px solid var(--warn);border-radius:0 8px 8px 0;padding:9px 12px;font-size:13px;color:#ffd9a8;margin-top:12px}
+  .okbox{background:rgba(61,220,151,.08);border-left:3px solid var(--ok);border-radius:0 8px 8px 0;padding:9px 12px;font-size:13px;color:#a8f0d2;margin-top:12px}
+  details{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-top:14px}
+  summary{cursor:pointer;font-size:15px;font-weight:700;color:var(--txt);list-style:none;display:flex;align-items:center;justify-content:space-between}
+  summary::after{content:"+";color:var(--acc);font-size:18px;transition:transform .2s}
+  details[open] summary::after{transform:rotate(45deg)}
+  details p{font-size:13.5px;color:var(--sub);margin-top:10px}
+  details li{font-size:13.5px}
+  .footer{text-align:center;color:var(--dim);font-size:12px;margin-top:28px;line-height:2}
+  .btn{display:block;text-align:center;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#0b1020;font-weight:800;font-size:15px;border-radius:12px;padding:13px;margin-top:18px;text-decoration:none;box-shadow:0 6px 20px rgba(122,162,255,.3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo"><img src="/icon.png" alt="星光手帐"></div>
+    <h1>星光手帐 · 健康数据接入指南</h1>
+    <div class="sub">不换手表 · 不花一分钱 · 用你的三星 S23 手机就能自动同步</div>
+  </header>
+
+  <div class="flow">
+    <span class="node hot">三星 S23 手机</span><span class="arrow">→</span>
+    <span class="node">三星健康</span><span class="arrow">→</span>
+    <span class="node">Health Connect</span><span class="arrow">→</span>
+    <span class="node">星光手帐</span>
+  </div>
+
+  <div class="hint">
+    <b>为什么手机就能行？</b> 你的三星 S23 自带计步传感器，三星健康 App 一直在记录你的步数、距离、卡路里，还能自动识别走路/跑步/骑行。国行三星健康把「健康连接」入口锁了，下面两步就是把它解锁放出来。手表继续戴，不影响。
+  </div>
+
+  <section style="border-color:var(--warn)">
+    <h2><span class="stepnum" style="background:var(--warn)">!</span><span class="tt">先看版本：7.0 新版请先降级</span></h2>
+    <ol>
+      <li>打开 <b>三星健康</b> → 设置 → 关于三星健康，看版本号</li>
+      <li><b>6.x（如 6.27 / 6.28）</b> → 直接跳过本步，从下面第 1 步开始</li>
+      <li><b>7.0 及以上（2026 年 6 月后的新版界面）</b> → 三星官方把 Set features 菜单移除了，文件夹法无效，先按下面折叠内容<b>降级</b>再继续</li>
+    </ol>
+    <details>
+      <summary>7.0 版本降级到 6.x（社区验证有效）</summary>
+      <p>三星健康 7.0 大改版（2026-06-17 推送）把 Set features 入口移除，盖乐世社区 3 月就有用户反馈，官方至今无解。降级步骤：</p>
+      <ol>
+        <li>设置 → 应用 → <b>三星健康</b> → 右上角 <b>⋮</b> → <b>卸载更新</b>（回退到出厂旧版）；如果它本来就不是系统应用，直接<b>卸载</b></li>
+        <li>手机浏览器打开 APKPure 或 Uptodown，搜 <b>Samsung Health</b>，下载 <b>6.28.x / 6.27.x</b> 版本（约 210MB）安装</li>
+        <li>打开三星健康 → 同意隐私协议 → 继续下面第 1 步（文件夹法在 6.x 版本有效）</li>
+        <li>⚠️ 解锁成功后：进应用商店把三星健康的<b>自动更新关掉</b>，千万不要升回 7.x，否则入口又没了</li>
+      </ol>
+    </details>
+  </section>
+
+  <section>
+    <h2><span class="stepnum">0</span><span class="tt">前置确认</span><span class="done" id="pre"></span></h2>
+    <ol>
+      <li>手机已装好 <b>Health Connect</b>（设置 → 应用 → 搜「健康连接」，能看到就说明装好了）</li>
+      <li>手机已装好 <b>星光手帐 App</b>（<a href="/download.html" style="color:var(--acc)">还没装？点这里下载</a>）</li>
+      <li>三星健康 App 是最新版（应用商店更新一下）</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2><span class="stepnum">1</span><span class="tt">开启三星健康开发者模式</span></h2>
+    <ol>
+      <li>打开<b>三星健康</b> → 点右下角菜单 → <b>设置</b></li>
+      <li>拉到最底部 → <b>关于三星健康</b> → <b>连续点击「版本号」约 7 次</b>，直到出现开发者菜单</li>
+      <li>点 <b>Developer Mode (Samsung Health Data SDK)</b> → 把 <b>Developer Mode for Data Read</b> 勾选为 <b>ON</b></li>
+      <li>打开手机自带的「<b>我的文件</b>」→ 进入 <span class="path">Download</span> 文件夹 → 新建 <b>SamsungHealth</b> 文件夹 → 在里面再建三个文件夹（大小写必须一致）：<br>
+        <span class="path">FeatureManagerOn</span>　<span class="path">FeatureListOn</span>　<span class="path">CscManagerOn</span></li>
+      <li>回到三星健康 → 关于页面，能看到 <b>Set Feature</b> 按钮就成功了</li>
+    </ol>
+    <div class="note">⚠️ 文件夹名严格区分大小写，建错一个 Health Connect 就出不来。<br>💡 如果手机端「我的文件」建了没反应（7.0 已封的不算）：用<b>数据线连电脑</b>，手机选「传输文件」模式，在电脑的资源管理器里进入 <span class="path">Download</span> 创建同样的文件夹，三星健康只认电脑建的这个。</div>
+  </section>
+
+  <section>
+    <h2><span class="stepnum">2</span><span class="tt">把地区改成 US，放出健康连接</span></h2>
+    <ol>
+      <li>回到「关于三星健康」页面 → 点 <b>Set Feature</b> 进入开发者特性菜单</li>
+      <li>点 <b>Common</b> → 把 <b>CSC Country Code</b> 改为 <span class="path">US</span> → 把下方 <b>MCC Configuration</b> 改为 <span class="path">310 (US)</span></li>
+      <li>点 <b>Analytics</b> → 把 <b>[HA] Server</b> 改为 <span class="path">DEV</span></li>
+      <li>点 <b>Data Platform</b> → 把 <b>Developer Mode</b> 和 <b>Data SDK Developer mode</b> 都勾选为 <b>ON</b></li>
+      <li>退出该页面 → 三星健康会要求<b>强制停止 App</b>，照做</li>
+      <li>重新打开三星健康 → 重新同意隐私协议</li>
+    </ol>
+    <div class="okbox">✅ 打开<b>设置</b>，如果出现「<b>健康连接</b>」选项，解锁成功！</div>
+  </section>
+
+  <section>
+    <h2><span class="stepnum">3</span><span class="tt">三星健康 → 健康连接 授权</span></h2>
+    <ol>
+      <li>三星健康 → <b>设置</b> → 点 <b>健康连接</b></li>
+      <li>开启「同步到健康连接」→ 在数据授权里把<b>步数、距离、卡路里、运动</b>等全部<b>允许</b></li>
+      <li>打开系统 <b>健康连接</b> → 权限 → 确认三星健康已授权</li>
+    </ol>
+    <div class="note">💡 手机需要<b>随身携带</b>才会计步（放桌上/充电时不计）。走路/跑步/骑行时让手机在口袋里，数据自动记录。</div>
+  </section>
+
+  <section>
+    <h2><span class="stepnum">4</span><span class="tt">星光手帐里收数据</span></h2>
+    <ol>
+      <li>打开<b>星光手帐</b> App → 登录账号 → 进入「<b>健身</b>」页</li>
+      <li>页面顶部出现<b>手表同步卡片</b> → 点「<b>授权</b>」→ 允许读取步数/心率/运动等权限</li>
+      <li>授权完成自动同步一次 → 卡片显示<b>今日步数 / 千卡 / 距离</b>和最近运动</li>
+      <li>之后每次打开 App 或切回前台都会<b>自动同步</b></li>
+    </ol>
+    <div class="okbox">🎉 搞定！以后手机计步的数据会一直自动进星光手帐。</div>
+  </section>
+
+  <details>
+    <summary>常见问题</summary>
+    <p><b>健身页没有「手表同步卡片」？</b><br>确认装的是 starlight-hc 新版 App（从 zixin.space/download.html 下载的）。浏览器里打开网页版不会有这个卡片，必须在 App 里。</p>
+    <p><b>授权后还是 0 步？</b><br>手机没带在身上/三星健康没开启步数记录。先打开三星健康看看首页有没有步数，有的话等 1-2 分钟再同步一次。</p>
+    <p><b>同步报错？</b><br>确认系统「健康连接」已授予三星健康和星光手帐读取权限，然后重新打开星光手帐触发自动同步。</p>
+    <p><b>这样改有风险吗？</b><br>社区大量验证过，可逆。想还原：删掉 Download/SamsungHealth 文件夹，再改回地区代码 CHN 即可。</p>
+  </details>
+
+  <details>
+    <summary>手表数据为什么不同步？（背景说明）</summary>
+    <p>你的红米 Watch 6 是国行版，固件被区域锁定，国际版 App 连不上（提示"设备不支持"），国行 App 又没有 Health Connect 入口——小米生态的数据出不来。所以改用手机计步 + 三星健康这条免费链路，手表继续戴着看时间、看心率、用表盘，互不影响。</p>
+  </details>
+
+  <a class="btn" href="/download.html">还没装星光手帐 App？去下载</a>
+
+  <div class="footer">
+    星光手帐 · 数据仅在手机本地流转<br>
+    遇到问题随时截图反馈
+  </div>
+</div>
+</body>
+</html>
