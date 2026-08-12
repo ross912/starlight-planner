@@ -1,7 +1,5 @@
 // 共享常量：心情、天气、计划层级
 
-export const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'] as const
-
 export interface MoodDef { key: string; label: string; emoji: string; color: string }
 export const MOODS: MoodDef[] = [
   { key: 'happy', label: '开心', emoji: '😄', color: '#f59e0b' },

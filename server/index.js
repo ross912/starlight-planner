@@ -55,29 +55,6 @@ CREATE TABLE IF NOT EXISTS transactions (
 );
 CREATE INDEX IF NOT EXISTS idx_tx_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_tx_type ON transactions(type);
-CREATE TABLE IF NOT EXISTS budgets (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id    INTEGER NOT NULL,
-  month      TEXT NOT NULL,              -- yyyy-MM
-  amount     INTEGER NOT NULL,           -- 预算金额，单位：分
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL,
-  UNIQUE(user_id, month)
-);
-
-CREATE TABLE IF NOT EXISTS tx_categories (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id    INTEGER NOT NULL,
-  type       TEXT NOT NULL,
-  key        TEXT NOT NULL,
-  label      TEXT NOT NULL,
-  emoji      TEXT NOT NULL DEFAULT '📦',
-  color      TEXT NOT NULL DEFAULT '#a8a29e',
-  created_at TEXT NOT NULL,
-  UNIQUE(user_id, type, key)
-);
-CREATE INDEX IF NOT EXISTS idx_txcats_user ON tx_categories(user_id, type);
-
 CREATE TABLE IF NOT EXISTS books (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   title        TEXT NOT NULL,
@@ -117,11 +94,6 @@ CREATE TABLE IF NOT EXISTS workouts (
 );
 CREATE INDEX IF NOT EXISTS idx_workouts_date ON workouts(date);
 `)
-
-// 为现有数据库补充列（幂等）
-try {
-  db.exec('ALTER TABLE users ADD COLUMN ai_persona TEXT')  // 自定义 AI 系统提示词
-} catch { /* column already exists */ }
 
 // workouts 表迁移：补充 reps（每组个数）字段
 if (!db.prepare('PRAGMA table_info(workouts)').all().some((c) => c.name === 'reps')) {
@@ -217,22 +189,6 @@ for (const [col, ddl] of [
   if (!tableCols('books').includes(col)) db.exec(ddl)
 }
 
-// 阅读进度记录表：每次更新阅读进度时记录
-db.exec(`
-CREATE TABLE IF NOT EXISTS reading_entries (
-  id              INTEGER PRIMARY KEY AUTOINCREMENT,
-  book_id         INTEGER NOT NULL,
-  user_id         INTEGER NOT NULL,
-  date            TEXT NOT NULL,
-  current_page    INTEGER NOT NULL DEFAULT 0,
-  progress_percent  REAL NOT NULL DEFAULT 0,
-  created_at      TEXT NOT NULL,
-  FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
-);
-CREATE INDEX IF NOT EXISTS idx_reading_entries_book ON reading_entries(book_id);
-CREATE INDEX IF NOT EXISTS idx_reading_entries_user ON reading_entries(user_id, date);
-`)
-
 // 业务表补充 user_id（用户数据隔离）
 for (const t of ['todos', 'transactions', 'books', 'workouts', 'sessions']) {
   if (!tableCols(t).includes('user_id')) db.exec(`ALTER TABLE ${t} ADD COLUMN user_id INTEGER`)
@@ -276,36 +232,6 @@ if (!tableCols('exercises').includes('user_id')) {
   `)
 }
 
-// 手表健康数据同步（Health Connect）：按天汇总 + 运动会话
-db.exec(`
-  CREATE TABLE IF NOT EXISTS hc_daily (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    date TEXT NOT NULL,
-    steps INTEGER NOT NULL DEFAULT 0,
-    calories INTEGER NOT NULL DEFAULT 0,
-    distance_km REAL NOT NULL DEFAULT 0,
-    source TEXT NOT NULL DEFAULT 'health_connect',
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    UNIQUE(user_id, date)
-  );
-  CREATE TABLE IF NOT EXISTS hc_sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    title TEXT NOT NULL DEFAULT '',
-    type TEXT NOT NULL DEFAULT 'other',
-    start_time TEXT NOT NULL,
-    end_time TEXT NOT NULL DEFAULT '',
-    duration_min INTEGER NOT NULL DEFAULT 0,
-    calories INTEGER NOT NULL DEFAULT 0,
-    distance_km REAL NOT NULL DEFAULT 0,
-    source TEXT NOT NULL DEFAULT 'health_connect',
-    created_at TEXT NOT NULL,
-    UNIQUE(user_id, start_time)
-  );
-`)
-
 // 力量训练预设项目（每个用户一份，注册时写入）
 const PRESET_EXERCISES = ['卧推', '深蹲', '哑铃飞鸟', '上斜卧推', '高位下拉', '引体向上', '站姿推肩', '坐姿推肩', '蝴蝶机反向飞鸟', '哑铃反向飞鸟']
 function seedExercisesFor(userId) {
@@ -338,7 +264,7 @@ if ((db.prepare('SELECT COUNT(*) AS c FROM users').get()).c === 0) {
   }
   const uid = Number(db.prepare('INSERT INTO users (username, password_hash, password_algo, salt, created_at) VALUES (?,?,?,?,?)')
     .run(ownerName, hash, algo, salt, now()).lastInsertRowid)
-  for (const t of ['diaries', 'todos', 'transactions', 'books', 'budgets', 'exercises', 'workouts', 'sessions', 'tx_categories']) {
+  for (const t of ['diaries', 'todos', 'transactions', 'books', 'exercises', 'workouts', 'sessions']) {
     db.prepare(`UPDATE ${t} SET user_id = ? WHERE user_id IS NULL`).run(uid)
   }
 }
@@ -704,41 +630,6 @@ app.delete('/api/transactions/:id', (req, res) => {
   res.json({ ok: true, deleted: info.changes })
 })
 
-
-// ---------------- 自定义记账分类 ----------------
-app.get('/api/transactions/categories', (req, res) => {
-  const rows = db.prepare('SELECT id, type, key, label, emoji, color FROM tx_categories WHERE user_id = ? ORDER BY id ASC').all(req.userId)
-  res.json(rows)
-})
-
-app.post('/api/transactions/categories', (req, res) => {
-  const type = String(req.body?.type ?? '').trim()
-  const label = String(req.body?.label ?? '').trim()
-  if (!type || (type !== 'expense' && type !== 'income')) return res.status(400).json({ error: 'invalid_type' })
-  if (!label || label.length > 20) return res.status(400).json({ error: 'invalid_label' })
-  const emoji = String(req.body?.emoji ?? '📦').slice(0, 4) || '📦'
-  const color = String(req.body?.color ?? '#a8a29e').slice(0, 7) || '#a8a29e'
-  // 生成 key：中文转拼音不支持，用 label 原文做 key（SQLite TEXT 无压力）
-  let key = label
-  // 如果 key 已存在，加数字后缀
-  let suffix = 1
-  while (db.prepare('SELECT id FROM tx_categories WHERE user_id = ? AND type = ? AND key = ?').get(req.userId, type, key)) {
-    suffix++
-    key = `${label}${suffix}`
-  }
-  const t = now()
-  db.prepare('INSERT INTO tx_categories (user_id, type, key, label, emoji, color, created_at) VALUES (?,?,?,?,?,?,?)')
-    .run(req.userId, type, key, label, emoji, color, t)
-  const row = db.prepare('SELECT id, type, key, label, emoji, color FROM tx_categories WHERE user_id = ? AND type = ? AND key = ?').get(req.userId, type, key)
-  res.status(201).json(row)
-})
-
-app.delete('/api/transactions/categories/:id', (req, res) => {
-  const info = db.prepare('DELETE FROM tx_categories WHERE id = ? AND user_id = ?').run(Number(req.params.id), req.userId)
-  res.json({ ok: true, deleted: info.changes })
-})
-
-
 // 月度汇总：收支合计、分类占比、每日趋势
 app.get('/api/transactions/stats', (req, res) => {
   const month = req.query.month || fmtDate(new Date()).slice(0, 7)
@@ -755,27 +646,6 @@ app.get('/api/transactions/stats', (req, res) => {
   res.json({ month, expense: sum('expense'), income: sum('income'), byCategory, daily })
 })
 
-// ---------------- 预算 ----------------
-app.get('/api/budgets', (req, res) => {
-  const month = req.query.month || fmtDate(new Date()).slice(0, 7)
-  const row = db.prepare('SELECT * FROM budgets WHERE user_id = ? AND month = ?').get(req.userId, month)
-  res.json(row ? { id: row.id, month: row.month, amount: row.amount } : null)
-})
-
-app.put('/api/budgets', (req, res) => {
-  const { month, amount } = req.body
-  const uid = req.userId
-  const now = fmtDate(new Date())
-  const existing = db.prepare('SELECT id FROM budgets WHERE user_id = ? AND month = ?').get(uid, month)
-  if (existing) {
-    db.prepare('UPDATE budgets SET amount = ?, updated_at = ? WHERE id = ?').run(amount, now, existing.id)
-  } else {
-    db.prepare('INSERT INTO budgets (user_id, month, amount, created_at, updated_at) VALUES (?,?,?,?,?)').run(uid, month, amount, now, now)
-  }
-  res.json({ ok: true, month, amount })
-})
-
-
 // ---------------- 阅读 ----------------
 
 const BOOK_STATUS = new Set(['want', 'reading', 'done'])
@@ -784,10 +654,8 @@ function rowToBook(r) {
   return {
     id: r.id, title: r.title, author: r.author, status: r.status,
     kind: r.kind || 'paper',
-    bookFormat: r.book_format || (r.pdf_path ? 'pdf' : (r.kind || 'paper')),
     rating: r.rating, totalPages: r.total_pages, currentPage: r.current_page,
     totalWords: r.total_words ?? 0, progressPct: r.progress_pct ?? 0,
-    progressPercent: r.progress_percent ?? r.progress_pct ?? 0,
     hasPdf: !!r.pdf_path, pdfPages: r.pdf_pages ?? 0, pdfName: r.pdf_name ?? '',
     note: r.note, finishedAt: r.finished_at, createdAt: r.created_at, updatedAt: r.updated_at,
   }
@@ -807,25 +675,20 @@ app.get('/api/books', (req, res) => {
 })
 
 app.post('/api/books', (req, res) => {
-  const { title, author = '', status = 'want', totalPages = 0, finishedAt, kind, bookFormat, totalWords = 0, progressPct, progressPercent } = req.body || {}
+  const { title, author = '', status = 'want', totalPages = 0, finishedAt, kind = 'paper', totalWords = 0, progressPct = 0 } = req.body || {}
   if (!title || !String(title).trim()) return res.status(400).json({ error: 'title_required' })
   if (!BOOK_STATUS.has(status)) return res.status(400).json({ error: 'invalid_status' })
-  const bf = bookFormat !== undefined ? String(bookFormat) : null
-  if (bf !== null && !['paper', 'ebook', 'pdf'].includes(bf)) return res.status(400).json({ error: 'invalid_kind' })
-  const k = validBookKind(kind ?? (bf === 'ebook' ? 'ebook' : 'paper'))
+  const k = validBookKind(kind)
   if (!k) return res.status(400).json({ error: 'invalid_kind' })
-  const bookFmt = bf || (k === 'ebook' ? 'ebook' : 'paper')
-  const pct = progressPercent !== undefined ? clampPct(progressPercent) : clampPct(progressPct ?? 0)
   if (finishedAt !== undefined && finishedAt !== null && !/^\d{4}-\d{2}-\d{2}$/.test(String(finishedAt))) {
     return res.status(400).json({ error: 'invalid_date' })
   }
   const t = now()
   const pages = Math.max(0, Math.round(Number(totalPages) || 0))
   const done = status === 'done'
-  const info = db.prepare('INSERT INTO books (user_id, title, author, status, kind, book_format, total_pages, current_page, total_words, progress_pct, progress_percent, finished_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-    .run(req.userId, String(title).trim(), String(author).trim(), status, k, bookFmt, pages, done && k !== 'ebook' ? pages : 0,
-      Math.max(0, Math.round(Number(totalWords) || 0)), done && k === 'ebook' ? 100 : pct,
-      done && k === 'ebook' ? 100 : pct,
+  const info = db.prepare('INSERT INTO books (user_id, title, author, status, kind, total_pages, current_page, total_words, progress_pct, finished_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+    .run(req.userId, String(title).trim(), String(author).trim(), status, k, pages, done && k === 'paper' ? pages : 0,
+      Math.max(0, Math.round(Number(totalWords) || 0)), done && k === 'ebook' ? 100 : clampPct(progressPct),
       done ? (finishedAt || t) : null, t, t)
   res.status(201).json(rowToBook(db.prepare('SELECT * FROM books WHERE id = ?').get(Number(info.lastInsertRowid))))
 })
@@ -844,19 +707,12 @@ app.patch('/api/books/:id', (req, res) => {
     ? Math.min(Math.max(0, Math.round(Number(b.currentPage) || 0)), totalPages || Number.MAX_SAFE_INTEGER)
     : row.current_page
   const rating = b.rating !== undefined ? Math.min(5, Math.max(0, Math.round(Number(b.rating) || 0))) : row.rating
-  // 类型与电子书字段（兼容新旧字段名：bookFormat 优先）
-  let kind = b.kind !== undefined ? validBookKind(b.kind) : row.kind
+  // 类型与电子书字段
+  const kind = b.kind !== undefined ? validBookKind(b.kind) : row.kind
   if (kind === null) return res.status(400).json({ error: 'invalid_kind' })
-  let bookFmt = row.book_format || row.kind || 'paper'
-  if (b.bookFormat !== undefined) {
-    if (!['paper', 'ebook', 'pdf'].includes(String(b.bookFormat))) return res.status(400).json({ error: 'invalid_kind' })
-    bookFmt = String(b.bookFormat)
-    kind = bookFmt === 'ebook' ? 'ebook' : 'paper'
-  }
   const totalWords = b.totalWords !== undefined ? Math.max(0, Math.round(Number(b.totalWords) || 0)) : row.total_words
   const pdfPages = b.pdfPages !== undefined ? Math.max(0, Math.round(Number(b.pdfPages) || 0)) : row.pdf_pages
-  let progressPct = b.progressPercent !== undefined ? clampPct(b.progressPercent)
-    : b.progressPct !== undefined ? clampPct(b.progressPct) : (row.progress_percent ?? row.progress_pct)
+  let progressPct = b.progressPct !== undefined ? clampPct(b.progressPct) : row.progress_pct
   // 完成日期：可自选（默认保留原值或当天）；状态变为已读时页数/百分比自动补满
   if (b.finishedAt !== undefined && b.finishedAt !== null && !/^\d{4}-\d{2}-\d{2}$/.test(String(b.finishedAt))) {
     return res.status(400).json({ error: 'invalid_date' })
@@ -864,42 +720,15 @@ app.patch('/api/books/:id', (req, res) => {
   const finishedAt = status === 'done' ? (b.finishedAt || row.finished_at || now()) : null
   const finalPage = status === 'done' && totalPages > 0 ? totalPages : currentPage
   if (status === 'done' && kind === 'ebook') progressPct = 100
-  db.prepare('UPDATE books SET title=?, author=?, status=?, rating=?, total_pages=?, current_page=?, note=?, finished_at=?, kind=?, book_format=?, total_words=?, progress_pct=?, progress_percent=?, pdf_pages=?, updated_at=? WHERE id=?')
+  db.prepare('UPDATE books SET title=?, author=?, status=?, rating=?, total_pages=?, current_page=?, note=?, finished_at=?, kind=?, total_words=?, progress_pct=?, pdf_pages=?, updated_at=? WHERE id=?')
     .run(
       title,
       b.author !== undefined ? String(b.author).trim() : row.author,
       status, rating, totalPages, finalPage,
       b.note !== undefined ? String(b.note).slice(0, 5000) : row.note,
-      finishedAt, kind, bookFmt, totalWords, progressPct, progressPct, pdfPages, now(), id,
+      finishedAt, kind, totalWords, progressPct, pdfPages, now(), id,
     )
-
-  // 记录本次阅读进度变化
-  const oldPage = Number(row.current_page || 0)
-  const oldPct = Number(row.progress_pct || 0)
-  if (finalPage !== oldPage || progressPct !== oldPct) {
-    const pNow = now()
-    db.prepare('INSERT INTO reading_entries (book_id, user_id, date, current_page, progress_percent, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(id, req.userId, pNow.slice(0, 10), finalPage, progressPct, pNow)
-  }
-
   res.json(rowToBook(db.prepare('SELECT * FROM books WHERE id = ?').get(id)))
-})
-
-// 查询一本书的阅读进度记录
-app.get('/api/books/:id/entries', (req, res) => {
-  const id = Number(req.params.id)
-  const book = db.prepare('SELECT id FROM books WHERE id = ? AND user_id = ?').get(id, req.userId)
-  if (!book) return res.status(404).json({ error: 'not_found' })
-  const rows = db.prepare(
-    'SELECT id, date, current_page, progress_percent, created_at FROM reading_entries WHERE book_id = ? AND user_id = ? ORDER BY date DESC, created_at DESC'
-  ).all(id, req.userId)
-  res.json(rows.map(r => ({
-    id: r.id,
-    date: r.date,
-    currentPage: r.current_page,
-    progressPercent: Number(r.progress_percent || 0),
-    createdAt: r.created_at,
-  })))
 })
 
 app.delete('/api/books/:id', (req, res) => {
@@ -923,37 +752,6 @@ const pdfUpload = multer({
     const ok = file.mimetype === 'application/pdf' || file.originalname.toLowerCase().endsWith('.pdf')
     cb(ok ? null : new Error('only_pdf'), ok)
   },
-})
-
-// 上传 PDF 直接创建书籍
-const pdfNewUpload = multer({
-  storage: multer.diskStorage({
-    destination: filesDir,
-    filename: (req, file, cb) => cb(null, `${req.userId}_new_${Date.now()}.pdf`),
-  }),
-  limits: { fileSize: 120 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const ok = file.mimetype === 'application/pdf' || file.originalname.toLowerCase().endsWith('.pdf')
-    cb(ok ? null : new Error('only_pdf'), ok)
-  },
-})
-
-app.post('/api/books/pdf', (req, res) => {
-  pdfNewUpload.single('file')(req, res, (err) => {
-    if (err) return res.status(400).json({ error: err.message === 'only_pdf' ? 'only_pdf' : 'upload_failed' })
-    if (!req.file) return res.status(400).json({ error: 'file_required' })
-    const title = String(req.body?.title || req.file.originalname.replace(/\.pdf$/i, '')).trim().slice(0, 200) || '未命名 PDF'
-    const author = String(req.body?.author || '').trim().slice(0, 100)
-    const t = now()
-    const info = db.prepare('INSERT INTO books (user_id, title, author, status, kind, book_format, total_pages, current_page, total_words, progress_pct, progress_percent, finished_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-      .run(req.userId, title, author, 'reading', 'ebook', 'pdf', 0, 0, 0, 0, 0, null, t, t)
-    const id = Number(info.lastInsertRowid)
-    const finalPath = path.join(filesDir, `${req.userId}_${id}.pdf`)
-    fs.renameSync(req.file.path, finalPath)
-    db.prepare('UPDATE books SET pdf_path = ?, pdf_name = ?, updated_at = ? WHERE id = ?')
-      .run(finalPath, String(req.file.originalname || 'book.pdf').slice(0, 120), now(), id)
-    res.json(rowToBook(db.prepare('SELECT * FROM books WHERE id = ?').get(id)))
-  })
 })
 
 app.post('/api/books/:id/pdf', (req, res) => {
@@ -1052,43 +850,6 @@ function validWorkout(body) {
   return { ...out, exercise: null, weightKg: null, sets: null, reps: null, durationMin: dur2, distanceKm: null, weather: null, matchType: body.matchType }
 }
 
-// ---------------- 手表同步（Health Connect） ----------------
-app.post('/api/fitness/sync', (req, res) => {
-  const uid = req.userId
-  const body = req.body || {}
-  const daily = Array.isArray(body.daily) ? body.daily : []
-  const sessions = Array.isArray(body.sessions) ? body.sessions : []
-  const t = now()
-  const D = /^\d{4}-\d{2}-\d{2}$/
-  const upsertDaily = db.prepare(`INSERT INTO hc_daily (user_id, date, steps, calories, distance_km, source, created_at, updated_at)
-    VALUES (?,?,?,?,?,?,?,?)
-    ON CONFLICT(user_id, date) DO UPDATE SET
-      steps = excluded.steps, calories = excluded.calories, distance_km = excluded.distance_km,
-      source = excluded.source, updated_at = excluded.updated_at`)
-  const insSession = db.prepare(`INSERT OR IGNORE INTO hc_sessions (user_id, title, type, start_time, end_time, duration_min, calories, distance_km, source, created_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?)`)
-  let dCount = 0, sCount = 0
-  for (const d of daily) {
-    if (!d || typeof d.date !== 'string' || !D.test(d.date)) continue
-    upsertDaily.run(uid, d.date, Number(d.steps) || 0, Number(d.calories) || 0, Number(d.distanceKm) || 0, String(d.source || 'health_connect'), t, t)
-    dCount++
-  }
-  for (const s of sessions) {
-    if (!s || typeof s.start !== 'string') continue
-    const info = insSession.run(uid, String(s.title || ''), String(s.type || 'other'), String(s.start), String(s.end || ''), Number(s.durationMin) || 0, Number(s.calories) || 0, Number(s.distanceKm) || 0, String(s.source || 'health_connect'), t)
-    sCount += Number(info.changes || 0)
-  }
-  res.json({ ok: true, dailyUpserted: dCount, sessionsInserted: sCount })
-})
-
-app.get('/api/fitness/sync', (req, res) => {
-  const uid = req.userId
-  const daily = db.prepare('SELECT date, steps, calories, distance_km AS distanceKm, updated_at FROM hc_daily WHERE user_id = ? ORDER BY date DESC LIMIT 60').all(uid)
-  const sessions = db.prepare('SELECT id, title, type, start_time AS start, end_time AS end, duration_min AS durationMin, calories, distance_km AS distanceKm, created_at FROM hc_sessions WHERE user_id = ? ORDER BY start_time DESC LIMIT 100').all(uid)
-  const last = db.prepare("SELECT MAX(ts) AS lastSyncAt FROM (SELECT updated_at AS ts FROM hc_daily WHERE user_id = ? UNION ALL SELECT created_at AS ts FROM hc_sessions WHERE user_id = ?)").get(uid, uid)
-  res.json({ lastSyncAt: (last && last.lastSyncAt) || null, daily, sessions })
-})
-
 app.get('/api/workouts', (req, res) => {
   const { date } = req.query
   const uid = req.userId
@@ -1156,19 +917,12 @@ function buildTimeline(uid) {
   // 阅读进度按更新时间记录
   for (const r of db.prepare("SELECT * FROM books WHERE user_id = ? AND status != 'want' ORDER BY updated_at").all(uid)) {
     const day = (r.updated_at || '').slice(0, 10)
-    const fmt = r.book_format || r.kind
-    const pct = r.progress_percent ?? r.progress_pct ?? 0
     const st = r.status === 'done'
       ? '读完'
-      : fmt === 'ebook'
-        ? `读到${Math.round(pct)}%`
+      : r.kind === 'ebook'
+        ? `读到${Math.round(r.progress_pct ?? 0)}%`
         : `读到${r.current_page}/${r.total_pages || '?'}页`
-    push(day, `阅读：《${r.title}》${st}${r.rating ? `，评分${r.rating}星` : ''}${r.note ? `\n  笔记：${r.note.replace(/\n+/g, ' ')}` : ''}`)
-  }
-
-  // 阅读进度明细（每次记录的日期和进度）
-  for (const r of db.prepare("SELECT re.date, re.current_page, re.progress_percent, b.title FROM reading_entries re JOIN books b ON b.id = re.book_id WHERE re.user_id = ? AND b.status != 'want' ORDER BY re.date").all(uid)) {
-    push(r.date, `阅读记录：《${r.title}》第${r.current_page}页（${Math.round(r.progress_percent)}%）`)
+    push(day, `阅读：《${r.title}》${st}${r.rating ? `，评分${r.rating}星` : ''}`)
   }
 
   const dates = [...blocks.keys()].sort()
@@ -1222,39 +976,14 @@ async function callDeepSeek(messages) {
   return ''
 }
 
-// ── 系统提示词（用户可自定义）──
-app.get('/api/settings/persona', (req, res) => {
-  const u = sessionUser(req)
-  if (!u) return res.status(401).json({ error: 'auth_required' })
-  const row = db.prepare('SELECT ai_persona FROM users WHERE id = ?').get(u.id)
-  res.json({ persona: row?.ai_persona || '', defaultPersona: AI_PERSONA_DEFAULT })
-})
-
-app.patch('/api/settings/persona', (req, res) => {
-  const u = sessionUser(req)
-  if (!u) return res.status(401).json({ error: 'auth_required' })
-  const p = String(req.body?.persona ?? '').trim()
-  if (p.length > 5000) return res.status(400).json({ error: 'persona_too_long' })
-  db.prepare('UPDATE users SET ai_persona = ? WHERE id = ?').run(p || null, u.id)
-  res.json({ ok: true })
-})
-
 const AI_PERSONA =
   '你是「星光手帐」里的 AI 伙伴，温暖、真诚、不说教。你会拿到用户从开始记录至今、按时间顺序排列的完整手帐数据（日记、计划、收支、健身、阅读）。请基于全部历史来理解这个真实的人：ta 的习惯、趋势、坚持与波动。'
-
-const AI_PERSONA_DEFAULT = AI_PERSONA
-
-// 获取用户自定义系统提示词，未设置则返回默认值
-function getPersona(uid) {
-  const row = db.prepare('SELECT ai_persona FROM users WHERE id = ?').get(uid)
-  return (row?.ai_persona?.trim()) || AI_PERSONA_DEFAULT
-}
 
 // 生成某一天的总结（全量时序上下文；不设输出上限，保证完整）
 async function generateSummaryFor(uid, date) {
   const timeline = buildTimeline(uid)
   const content = await callDeepSeek([
-    { role: 'system', content: getPersona(uid) },
+    { role: 'system', content: AI_PERSONA },
     {
       role: 'user',
       content: `${timeline}\n\n———\n请为【${date}】这一天写一篇总结（250-350字，第二人称）：\n1. 先概括这一天做了什么、完成得怎么样\n2. 结合全部历史，指出 1-2 个值得注意的亮点、进步或趋势（坚持、变化、对比）\n3. 最后给一句温暖而具体的小建议\n语气像一位了解 ta 的老朋友，不要列表式生硬罗列，直接成文。`,
@@ -1296,7 +1025,7 @@ app.post('/api/ai/chat', async (req, res) => {
   const history = db.prepare('SELECT role, content FROM chat_messages WHERE user_id = ? ORDER BY id DESC LIMIT 20').all(uid).reverse()
   try {
     const reply = await callDeepSeek([
-      { role: 'system', content: `${getPersona(uid)}\n以下是 ta 的完整手帐记录：\n\n${timeline}` },
+      { role: 'system', content: `${AI_PERSONA}\n以下是 ta 的完整手帐记录：\n\n${timeline}` },
       ...history.map((h) => ({ role: h.role, content: h.content })),
       { role: 'user', content: message },
     ])

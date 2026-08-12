@@ -1,5 +1,5 @@
 // API 封装
-import type { Book, BookStatus, Diary, Exercise, ReadingEntry, StatsOverview, Todo, TodoStatus, Transaction, TxStats, TxType, Workout } from '../types'
+import type { Book, BookStatus, Diary, Exercise, StatsOverview, Todo, TodoStatus, Transaction, TxStats, TxType, Workout } from '../types'
 
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
@@ -53,18 +53,12 @@ export const api = {
     http<Transaction>(`/api/transactions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteTransaction: (id: number) => http<{ ok: boolean }>(`/api/transactions/${id}`, { method: 'DELETE' }),
   transactionStats: (month: string) => http<TxStats>(`/api/transactions/stats?month=${month}`),
-  listTxCategories: () => http<{ id: number; type: 'expense' | 'income'; key: string; label: string; emoji: string; color: string }[]>('/api/transactions/categories'),
-  addTxCategory: (data: { type: 'expense' | 'income'; label: string; emoji?: string; color?: string }) =>
-    http<{ id: number; type: string; key: string; label: string; emoji: string; color: string }>('/api/transactions/categories', { method: 'POST', body: JSON.stringify(data) }),
-  deleteTxCategory: (id: number) => http<{ ok: boolean }>(`/api/transactions/categories/${id}`, { method: 'DELETE' }),
-  getBudget: (month: string) => http<{ id: number; month: string; amount: number } | null>(`/api/budgets?month=${month}`),
-  saveBudget: (month: string, amount: number) => http<{ ok: boolean }>('/api/budgets', { method: 'PUT', body: JSON.stringify({ month, amount }) }),
 
   // 阅读
   listBooks: (status?: BookStatus) => http<Book[]>(`/api/books${status ? `?status=${status}` : ''}`),
-  createBook: (data: { title: string; author?: string; status?: BookStatus; kind?: 'paper' | 'ebook'; bookFormat?: 'paper' | 'ebook' | 'pdf'; totalPages?: number; totalWords?: number; progressPct?: number; progressPercent?: number; finishedAt?: string }) =>
+  createBook: (data: { title: string; author?: string; status?: BookStatus; kind?: 'paper' | 'ebook'; totalPages?: number; totalWords?: number; progressPct?: number; finishedAt?: string }) =>
     http<Book>('/api/books', { method: 'POST', body: JSON.stringify(data) }),
-  updateBook: (id: number, data: Partial<{ title: string; author: string; status: BookStatus; kind: 'paper' | 'ebook'; bookFormat: 'paper' | 'ebook' | 'pdf'; rating: number; totalPages: number; currentPage: number; totalWords: number; progressPct: number; progressPercent: number; pdfPages: number; note: string; finishedAt: string | null }>) =>
+  updateBook: (id: number, data: Partial<{ title: string; author: string; status: BookStatus; kind: 'paper' | 'ebook'; rating: number; totalPages: number; currentPage: number; totalWords: number; progressPct: number; pdfPages: number; note: string; finishedAt: string | null }>) =>
     http<Book>(`/api/books/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteBook: (id: number) => http<{ ok: boolean }>(`/api/books/${id}`, { method: 'DELETE' }),
   uploadPdf: async (id: number, file: File): Promise<Book> => {
@@ -78,21 +72,7 @@ export const api = {
     return res.json()
   },
   deletePdf: (id: number) => http<{ ok: boolean }>(`/api/books/${id}/pdf`, { method: 'DELETE' }),
-  listReadingEntries: (bookId: number) => http<ReadingEntry[]>(`/api/books/${bookId}/entries`),
-  uploadBookPdf: async (file: File, meta: { title: string; author?: string }): Promise<Book> => {
-    const fd = new FormData()
-    fd.append('file', file)
-    fd.append('title', meta.title)
-    if (meta.author) fd.append('author', meta.author)
-    const res = await fetch('/api/books/pdf', { method: 'POST', body: fd, credentials: 'same-origin' })
-    if (!res.ok) {
-      const text = await res.text().catch(() => '')
-      throw new Error(text.includes('only_pdf') ? '只能上传 PDF 文件' : '上传失败，文件过大或网络异常')
-    }
-    return res.json()
-  },
   pdfUrl: (id: number) => `/api/books/${id}/pdf`,
-  bookPdfUrl: (id: number) => `/api/books/${id}/pdf`,
 
   // 健身
   listExercises: () => http<Exercise[]>('/api/exercises'),
@@ -102,8 +82,6 @@ export const api = {
   createWorkout: (data: Record<string, unknown>) =>
     http<Workout>('/api/workouts', { method: 'POST', body: JSON.stringify(data) }),
   deleteWorkout: (id: number) => http<{ ok: boolean }>(`/api/workouts/${id}`, { method: 'DELETE' }),
-  getFitnessSync: () => http<{ lastSyncAt: string | null; daily: Array<{ date: string; steps: number; calories: number; distanceKm: number }>; sessions: Array<{ id: number; title: string; type: string; start: string; end: string; durationMin: number; calories: number; distanceKm: number }> }>('/api/fitness/sync'),
-  syncFitness: (payload: { daily: unknown[]; sessions: unknown[] }) => http<{ ok: boolean; dailyUpserted: number; sessionsInserted: number }>('/api/fitness/sync', { method: 'POST', body: JSON.stringify(payload) }),
 
   // 认证
   login: (username: string, password: string) =>
@@ -116,10 +94,6 @@ export const api = {
     http<{ ok: boolean }>('/api/auth/password', { method: 'POST', body: JSON.stringify({ current, next }) }),
   changeUsername: (username: string) =>
     http<{ ok: boolean; username: string }>('/api/auth/username', { method: 'POST', body: JSON.stringify({ username }) }),
-  getPersona: () =>
-    http<{ persona: string; defaultPersona: string }>('/api/settings/persona'),
-  savePersona: (persona: string) =>
-    http<{ ok: boolean }>('/api/settings/persona', { method: 'PATCH', body: JSON.stringify({ persona }) }),
   createInvite: () => http<{ code: string; expiresAt: string }>('/api/invites', { method: 'POST' }),
   listInvites: () => http<{ code: string; expiresAt: string; usedNames: string[]; remaining: number; createdAt: string }[]>('/api/invites'),
 

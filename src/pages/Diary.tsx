@@ -1,21 +1,22 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { format, parseISO } from 'date-fns'
-import { ChevronLeft, ChevronRight, Cloud, Hash, Smile, Trash2, X } from 'lucide-react'
+import { CalendarDays, Cloud, Hash, Search, Smile, Trash2, X } from 'lucide-react'
 import { api } from '../lib/api'
-import { MOODS, WEATHERS, WEEKDAYS, moodOf, weatherOf } from '../lib/constants'
+import { MOODS, WEATHERS, moodOf, weatherOf } from '../lib/constants'
 import type { Diary } from '../types'
 
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
 type Draft = { content: string; mood: string; weather: string; tags: string[] }
 const EMPTY: Draft = { content: '', mood: '', weather: '', tags: [] }
 
 export default function DiaryPage() {
   const todayStr = format(new Date(), 'yyyy-MM-dd')
   const [selected, setSelected] = useState(todayStr)
-  const [month, setMonth] = useState(() => format(new Date(), 'yyyy-MM'))
   const [draft, setDraft] = useState<Draft>(EMPTY)
   const [dirty, setDirty] = useState(false)
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [entries, setEntries] = useState<Diary[]>([])
+  const [query, setQuery] = useState('')
   const [tagInput, setTagInput] = useState('')
 
   const selectedRef = useRef(selected)
@@ -26,9 +27,10 @@ export default function DiaryPage() {
   dirtyRef.current = dirty
   const timer = useRef<number | undefined>(undefined)
 
-  const refreshList = useCallback(async () => {
-    setEntries(await api.listDiaries({ month }))
-  }, [month])
+  const refreshList = useCallback(async (q = query) => {
+    const list = await api.listDiaries(q ? { q } : undefined)
+    setEntries(list)
+  }, [query])
 
   const flushSave = useCallback(async () => {
     if (!dirtyRef.current) return
@@ -60,8 +62,10 @@ export default function DiaryPage() {
 
   // 初次加载
   useEffect(() => {
-    refreshList().catch(console.error)
-  }, [refreshList])
+    loadDate(todayStr).catch(console.error)
+    refreshList('').catch(console.error)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // 切换日期时加载
   useEffect(() => {
@@ -98,6 +102,13 @@ export default function DiaryPage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [flushSave])
 
+  // 搜索
+  useEffect(() => {
+    const t = window.setTimeout(() => refreshList(query).catch(console.error), 300)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query])
+
   const addTag = () => {
     const t = tagInput.trim().replace(/^#/, '')
     if (!t || draft.tags.includes(t) || draft.tags.length >= 10) return
@@ -112,38 +123,78 @@ export default function DiaryPage() {
     refreshList()
   }
 
-  const shiftMonth = (delta: number) => {
-    const [y, m] = month.split('-').map(Number)
-    setMonth(format(new Date(y, m - 1 + delta, 1), 'yyyy-MM'))
-  }
-
-  // 日历数据
-  const entryMap = useMemo(() => {
-    const m = new Map<string, Diary>()
-    for (const e of entries) m.set(e.date, e)
-    return m
-  }, [entries])
-
-  const cells = useMemo(() => {
-    const [year, monthNum] = month.split('-').map(Number)
-    const daysInMonth = new Date(year, monthNum, 0).getDate()
-    const firstDayOfWeek = new Date(year, monthNum - 1, 1).getDay() // 0=Sun
-    const list: ({ day: number; date: string } | null)[] = []
-    for (let i = 0; i < firstDayOfWeek; i++) list.push(null)
-    for (let day = 1; day <= daysInMonth; day++) {
-      const dateStr = `${year}-${String(monthNum).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-      list.push({ day, date: dateStr })
-    }
-    return list
-  }, [month])
-
   const selDate = parseISO(selected)
-  const hasEntry = entryMap.has(selected)
-  const [y, mo] = month.split('-')
+  const hasEntry = entries.some((e) => e.date === selected)
 
   return (
-    <div className="grid gap-5">
-      {/* 上：编辑器 */}
+    <div className="grid gap-5 lg:grid-cols-[300px_1fr]">
+      {/* 左：历史列表 */}
+      <aside className="warm-card p-4 flex flex-col max-h-[calc(100vh-8rem)] lg:sticky lg:top-8">
+        <div className="relative">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+          <input
+            className="warm-input w-full pl-9"
+            placeholder="搜索日记内容或标签…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+
+        <button
+          onClick={() => selectDate(todayStr)}
+          className={`mt-3 rounded-xl px-3 py-2 text-sm text-left transition ${
+            selected === todayStr ? 'bg-orange-500 text-white font-medium' : 'bg-orange-100/70 text-orange-800 hover:bg-orange-100'
+          }`}
+        >
+          📖 今天 · {format(new Date(), 'M月d日')}
+        </button>
+
+        <div className="mt-2 flex items-center gap-2">
+          <CalendarDays size={14} className="text-stone-400 shrink-0" />
+          <input
+            type="date"
+            className="warm-input w-full text-xs"
+            value={selected}
+            max={todayStr}
+            onChange={(e) => e.target.value && selectDate(e.target.value)}
+          />
+        </div>
+
+        <div className="mt-3 flex-1 overflow-y-auto space-y-1 pr-1">
+          {entries.map((e) => {
+            const d = parseISO(e.date)
+            return (
+              <button
+                key={e.date}
+                onClick={() => selectDate(e.date)}
+                className={`w-full rounded-xl px-3 py-2.5 text-left transition ${
+                  selected === e.date ? 'bg-orange-100 border border-orange-200' : 'hover:bg-orange-50 border border-transparent'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-stone-700">
+                    {d.getMonth() + 1}月{d.getDate()}日 周{WEEKDAYS[d.getDay()]}
+                  </span>
+                  <span className="text-base leading-none">
+                    {moodOf(e.mood)?.emoji ?? ''}{weatherOf(e.weather)?.emoji ?? ''}
+                  </span>
+                </div>
+                {e.snippet && <p className="mt-1 text-xs text-stone-400 line-clamp-1">{e.snippet}</p>}
+                {e.tags.length > 0 && (
+                  <p className="mt-1 text-xs text-orange-600/70 line-clamp-1">{e.tags.map((t) => `#${t}`).join(' ')}</p>
+                )}
+              </button>
+            )
+          })}
+          {entries.length === 0 && (
+            <p className="py-8 text-center text-xs text-stone-400">
+              {query ? '没有找到相关日记' : '还没有日记，从右边开始第一篇吧'}
+            </p>
+          )}
+        </div>
+      </aside>
+
+      {/* 右：编辑器 */}
       <section className="warm-card p-6 md:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -247,84 +298,6 @@ export default function DiaryPage() {
           <span>Ctrl/⌘ + S 立即保存</span>
         </div>
       </section>
-
-      {/* 下：月历 */}
-      <aside className="warm-card p-4">
-        {/* 月份导航 */}
-        <div className="flex items-center justify-between mb-3 max-w-sm mx-auto w-full">
-          <button className="warm-btn-ghost !px-2 min-h-9" onClick={() => shiftMonth(-1)} aria-label="上个月">
-            <ChevronLeft size={16} />
-          </button>
-          <span className="text-sm font-medium text-stone-700">{y}年{Number(mo)}月</span>
-          <button className="warm-btn-ghost !px-2 min-h-9" onClick={() => shiftMonth(1)} aria-label="下个月">
-            <ChevronRight size={16} />
-          </button>
-        </div>
-
-        {/* 星期头 */}
-        <div className="grid grid-cols-7 gap-0.5 mb-1 max-w-sm mx-auto w-full">
-          {WEEKDAYS.map((w) => (
-            <div key={w} className="text-center text-[11px] text-stone-400 py-1">
-              {w}
-            </div>
-          ))}
-        </div>
-
-        {/* 日历格子 */}
-        <div className="grid grid-cols-7 gap-0.5 max-w-sm mx-auto w-full">
-          {cells.map((cell, i) => {
-            if (!cell) return <div key={`empty-${i}`} className="aspect-square" />
-
-            const entry = entryMap.get(cell.date)
-            const isToday = cell.date === todayStr
-            const isSelected = cell.date === selected
-            const isFuture = cell.date > todayStr
-
-            return (
-              <button
-                key={cell.date}
-                disabled={isFuture}
-                onClick={() => { void selectDate(cell.date) }}
-                className={`
-                  aspect-square rounded-lg flex flex-col items-center justify-center transition text-[11px]
-                  ${isSelected
-                    ? 'bg-orange-100 ring-2 ring-orange-300 scale-95'
-                    : isToday
-                      ? 'bg-amber-50 ring-1 ring-amber-200'
-                      : entry
-                        ? 'bg-stone-50 hover:bg-orange-50'
-                        : 'hover:bg-stone-50'
-                  }
-                  ${isFuture ? 'opacity-30 cursor-default' : ''}
-                `}
-              >
-                <span className={`font-medium ${isToday ? 'text-orange-600' : 'text-stone-600'}`}>
-                  {cell.day}
-                </span>
-                {entry && (
-                  <span className="text-[10px] leading-tight mt-0.5">
-                    {moodOf(entry.mood)?.emoji ?? ''}{weatherOf(entry.weather)?.emoji ?? ''}
-                    {!entry.mood && !entry.weather && <span className="inline-block h-1 w-1 rounded-full bg-orange-400" />}
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* 回到今天 */}
-        {selected !== todayStr && (
-          <button
-            className="warm-btn-ghost mt-3 text-xs w-full"
-            onClick={() => {
-              setMonth(format(new Date(), 'yyyy-MM'))
-              void selectDate(todayStr)
-            }}
-          >
-            回到今天
-          </button>
-        )}
-      </aside>
     </div>
   )
 }

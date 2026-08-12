@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
-import { ArrowRight, NotebookPen, Plus, Sparkles } from 'lucide-react'
+import { ArrowRight, Flame, NotebookPen, Plus, Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
 import { api } from '../lib/api'
-import { fenToYuan, moodOf, weatherOf } from '../lib/constants'
+import StatCard from '../components/StatCard'
+import { LEVEL_DEFS, fenToYuan, moodOf, weatherOf } from '../lib/constants'
 import type { Diary, StatsOverview, Todo } from '../types'
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
@@ -56,6 +57,14 @@ export default function Home() {
     setNewTitle('')
     load()
   }
+
+  const levelCards = useMemo(() => {
+    if (!stats) return []
+    return LEVEL_DEFS.map((def) => {
+      const s = stats.todos.levelStats[def.key]
+      return { ...def, ...s, pct: s.total ? Math.round((s.done / s.total) * 100) : 0 }
+    })
+  }, [stats])
 
   return (
     <div className="space-y-6">
@@ -179,53 +188,84 @@ export default function Home() {
         </section>
       </div>
 
-            {/* 快捷入口 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      {/* 坚持数据 */}
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
+        <StatCard icon="📔" label="连续写日记" value={stats?.diary.streak ?? 0} unit="天" />
+        <StatCard icon="🔥" label="连续完成日计划" value={stats?.todos.taskStreak ?? 0} unit="天" />
+        <StatCard icon="📖" label="日记总数" value={stats?.diary.total ?? 0} unit="篇" />
+        <StatCard
+          icon="✅"
+          label="任务完成率"
+          value={overallRate(stats)}
+          unit="%"
+        />
         <Link to="/money" className="warm-card px-4 py-3.5 sm:px-5 sm:py-4 block transition hover:-translate-y-0.5 hover:shadow-[0_6px_20px_-8px_rgba(194,120,40,0.4)]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-stone-500 flex items-center gap-1.5"><span>💰</span> 记账</p>
-              <p className={`mt-1 text-sm font-medium ${moneyBalance(stats) >= 0 ? 'text-stone-700' : 'text-rose-500'}`}>
-                本月结余 {moneyBalance(stats) < 0 && '-'}¥{fenToYuan(Math.abs(moneyBalance(stats)))}
-              </p>
-            </div>
-            <ArrowRight size={16} className="text-stone-300" />
-          </div>
+          <p className="text-xs text-stone-500 flex items-center gap-1.5">
+            <span>💰</span>
+            本月结余
+          </p>
+          <p className={`mt-1.5 sm:mt-2 text-xl sm:text-2xl font-bold ${moneyBalance(stats) >= 0 ? 'text-orange-900' : 'text-rose-500'}`}>
+            {moneyBalance(stats) < 0 && '-'}¥{fenToYuan(Math.abs(moneyBalance(stats)))}
+          </p>
         </Link>
         <Link to="/fitness" className="warm-card px-4 py-3.5 sm:px-5 sm:py-4 block transition hover:-translate-y-0.5 hover:shadow-[0_6px_20px_-8px_rgba(194,120,40,0.4)]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-stone-500 flex items-center gap-1.5"><span>💪</span> 健身</p>
-              <p className="mt-1 text-sm font-medium text-stone-700">
-                本周运动 {stats?.fitness.weekDays ?? 0} 天
-              </p>
-            </div>
-            <ArrowRight size={16} className="text-stone-300" />
-          </div>
-        </Link>
-        <Link to="/reading" className="warm-card px-4 py-3.5 sm:px-5 sm:py-4 block transition hover:-translate-y-0.5 hover:shadow-[0_6px_20px_-8px_rgba(194,120,40,0.4)]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-stone-500 flex items-center gap-1.5"><span>📚</span> 书架</p>
-              <p className="mt-1 text-sm font-medium text-stone-700">
-                在读 {stats?.books.reading ?? 0} 本
-              </p>
-            </div>
-            <ArrowRight size={16} className="text-stone-300" />
-          </div>
-        </Link>
-        <Link to="/stats" className="warm-card px-4 py-3.5 sm:px-5 sm:py-4 block transition hover:-translate-y-0.5 hover:shadow-[0_6px_20px_-8px_rgba(194,120,40,0.4)]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-stone-500 flex items-center gap-1.5"><span>📊</span> 统计</p>
-              <p className="mt-1 text-sm font-medium text-stone-700">查看全部数据</p>
-            </div>
-            <ArrowRight size={16} className="text-stone-300" />
-          </div>
+          <p className="text-xs text-stone-500 flex items-center gap-1.5">
+            <span>💪</span>
+            本周运动
+          </p>
+          <p className="mt-1.5 sm:mt-2 text-xl sm:text-2xl font-bold text-orange-900">
+            {stats?.fitness.weekDays ?? 0}
+            <span className="ml-1 text-sm font-normal text-stone-400">天</span>
+            {(stats?.fitness.todayCount ?? 0) > 0 && (
+              <span className="ml-2 text-xs font-normal text-orange-600">今日 {stats?.fitness.todayCount} 条</span>
+            )}
+          </p>
         </Link>
       </div>
+
+      {/* 五层计划进度 */}
+      <section className="warm-card p-4 sm:p-5">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-orange-950 flex items-center gap-2">
+            <Flame size={17} className="text-orange-500" />
+            五层计划进度
+          </h3>
+          <Link to="/plans" className="text-xs text-orange-600 hover:text-orange-800 inline-flex items-center gap-1">
+            管理计划 <ArrowRight size={12} />
+          </Link>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {levelCards.map((c) => (
+            <div key={c.key} className="rounded-xl border border-orange-100 bg-orange-50/50 px-4 py-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-stone-700">
+                  {c.icon} {c.label}
+                </span>
+                <span className="text-xs text-orange-700 font-semibold">{c.pct}%</span>
+              </div>
+              <div className="mt-2 h-1.5 rounded-full bg-orange-100 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-500"
+                  style={{ width: `${c.pct}%` }}
+                />
+              </div>
+              <p className="mt-1.5 text-xs text-stone-400">
+                {c.done}/{c.total} 项
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   )
+}
+
+function overallRate(stats: StatsOverview | null): number {
+  if (!stats) return 0
+  const all = Object.values(stats.todos.levelStats)
+  const total = all.reduce((s, x) => s + x.total, 0)
+  const done = all.reduce((s, x) => s + x.done, 0)
+  return total ? Math.round((done / total) * 100) : 0
 }
 
 function moneyBalance(stats: StatsOverview | null): number {
