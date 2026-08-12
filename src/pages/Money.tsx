@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
-import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2, TrendingDown, TrendingUp, Wallet, Target } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2, TrendingDown, TrendingUp, Wallet, Target, X } from 'lucide-react'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { api } from '../lib/api'
 import { EXPENSE_CATS, INCOME_CATS, fenToYuan, txCatOf } from '../lib/constants'
@@ -8,11 +8,24 @@ import type { Transaction, TxStats, TxType } from '../types'
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
 
+/** 自定义分类类型 */
+type CustomCat = { id: number; type: 'expense' | 'income'; key: string; label: string; emoji: string; color: string }
+
+/** 颜色调色板：循环分配 */
+const COLOR_PALETTE = ['#f97316', '#eab308', '#ec4899', '#a78bfa', '#60a5fa', '#34d399', '#f472b6', '#38bdf8', '#fb7185', '#84cc16', '#f59e0b', '#06b6d4']
+
 /** 金额缩略：超过 1 万用 "w" 表示 */
 function shortAmount(fen: number): string {
   const yuan = fen / 100
   if (yuan >= 10000) return (yuan / 10000).toFixed(1).replace(/\.0$/, '') + 'w'
   return yuan.toFixed(yuan % 1 === 0 ? 0 : 2)
+}
+
+/** 合并内置 + 自定义分类的查找函数 */
+function catLookup(type: 'expense' | 'income', key: string, customCats: CustomCat[]) {
+  const builtin = txCatOf(type, key)
+  if (builtin) return builtin
+  return customCats.find((c) => c.type === type && c.key === key) ?? { key, label: key, emoji: '📦', color: '#a8a29e' }
 }
 
 export default function MoneyPage() {
@@ -27,15 +40,20 @@ export default function MoneyPage() {
   const [editingBudget, setEditingBudget] = useState(false)
   const [budgetInput, setBudgetInput] = useState('')
 
+  // ---- 自定义分类 ----
+  const [customCats, setCustomCats] = useState<CustomCat[]>([])
+
   const load = useCallback(async () => {
-    const [l, s, b] = await Promise.all([
+    const [l, s, b, cc] = await Promise.all([
       api.listTransactions(month),
       api.transactionStats(month),
       api.getBudget(month),
+      api.listTxCategories(),
     ])
     setList(l)
     setStats(s)
     setBudget(b)
+    setCustomCats(cc as CustomCat[])
   }, [month])
 
   useEffect(() => {
@@ -117,8 +135,8 @@ export default function MoneyPage() {
     () =>
       (stats?.byCategory ?? [])
         .filter((c) => c.type === 'expense')
-        .map((c) => ({ ...c, ...(txCatOf('expense', c.category) ?? { label: c.category, emoji: '\uD83D\uDCE6', color: '#a8a29e' }) })),
-    [stats],
+        .map((c) => ({ ...c, ...catLookup('expense', c.category, customCats) })),
+    [stats, customCats],
   )
 
   const balance = (stats?.income ?? 0) - (stats?.expense ?? 0)
@@ -129,6 +147,21 @@ export default function MoneyPage() {
   const budgetAmount = budget?.amount ?? 0
   const budgetPct = budgetAmount > 0 ? Math.min(100, Math.round((spent / budgetAmount) * 100)) : 0
   const overBudget = budgetAmount > 0 && spent > budgetAmount
+
+  // ---- 添加自定义分类 ----
+  const addCustomCat = async (type: TxType, label: string, emoji: string) => {
+    const color = COLOR_PALETTE[customCats.length % COLOR_PALETTE.length]
+    await api.addTxCategory({ type, label, emoji, color })
+    const cc = await api.listTxCategories()
+    setCustomCats(cc as CustomCat[])
+  }
+
+  // ---- 删除自定义分类 ----
+  const deleteCustomCat = async (id: number) => {
+    await api.deleteTxCategory(id)
+    const cc = await api.listTxCategories()
+    setCustomCats(cc as CustomCat[])
+  }
 
   return (
     <div className="space-y-5">
@@ -160,19 +193,19 @@ export default function MoneyPage() {
           <p className="text-xs text-stone-500 flex items-center gap-1.5">
             <TrendingDown size={13} className="text-rose-400" /> 本月支出
           </p>
-          <p className="mt-1.5 sm:mt-2 text-lg sm:text-2xl font-bold text-rose-500">¥{fenToYuan(spent)}</p>
+          <p className="mt-1.5 sm:mt-2 text-lg sm:text-2xl font-bold text-rose-500 whitespace-nowrap">¥{fenToYuan(spent)}</p>
         </div>
         <div className="warm-card px-3.5 py-3 sm:px-5 sm:py-4">
           <p className="text-xs text-stone-500 flex items-center gap-1.5">
             <TrendingUp size={13} className="text-emerald-500" /> 本月收入
           </p>
-          <p className="mt-1.5 sm:mt-2 text-lg sm:text-2xl font-bold text-emerald-600">¥{fenToYuan(stats?.income ?? 0)}</p>
+          <p className="mt-1.5 sm:mt-2 text-lg sm:text-2xl font-bold text-emerald-600 whitespace-nowrap">¥{fenToYuan(stats?.income ?? 0)}</p>
         </div>
         <div className="warm-card px-3.5 py-3 sm:px-5 sm:py-4">
           <p className="text-xs text-stone-500 flex items-center gap-1.5">
             <Wallet size={13} className="text-orange-500" /> 结余
           </p>
-          <p className={`mt-1.5 sm:mt-2 text-lg sm:text-2xl font-bold ${balance >= 0 ? 'text-orange-700' : 'text-rose-500'}`}>
+          <p className={`mt-1.5 sm:mt-2 text-lg sm:text-2xl font-bold whitespace-nowrap ${balance >= 0 ? 'text-orange-700' : 'text-rose-500'}`}>
             {balance < 0 && '-'}¥{fenToYuan(Math.abs(balance))}
           </p>
         </div>
@@ -240,7 +273,7 @@ export default function MoneyPage() {
       )}
 
       {/* ---- 记一笔 ---- */}
-      <AddForm onSaved={load} />
+      <AddForm onSaved={load} customCats={customCats} onAddCat={addCustomCat} onDeleteCat={deleteCustomCat} />
 
       {/* ---- 支出分类饼图 ---- */}
       {list.length > 0 && (
@@ -373,7 +406,7 @@ export default function MoneyPage() {
               </div>
               <ul className="divide-y divide-orange-50">
                 {selectedTxs.map((tx) => {
-                  const cat = txCatOf(tx.type, tx.category)
+                  const cat = catLookup(tx.type, tx.category, customCats)
                   return (
                     <li
                       key={tx.id}
@@ -383,7 +416,7 @@ export default function MoneyPage() {
                         className="flex h-8 w-8 items-center justify-center rounded-xl text-base"
                         style={{ background: `${cat?.color ?? '#a8a29e'}1f` }}
                       >
-                        {cat?.emoji ?? '\uD83D\uDCE6'}
+                        {cat?.emoji ?? '📦'}
                       </span>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-stone-800">{cat?.label ?? tx.category}</p>
@@ -394,7 +427,7 @@ export default function MoneyPage() {
                       >
                         {tx.type === 'expense' ? '-' : '+'}¥{fenToYuan(tx.amount)}
                       </span>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <button
                           className="warm-btn-ghost !px-1.5 text-stone-400 hover:text-orange-600"
                           onClick={() => setEditing(tx)}
@@ -431,7 +464,16 @@ export default function MoneyPage() {
         <p className="py-12 text-center text-sm text-stone-400">本月还没有记录，从上面「记一笔」开始吧 💰</p>
       )}
 
-      {editing && <EditTxDialog tx={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load() }} />}
+      {editing && (
+        <EditTxDialog
+          tx={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); load() }}
+          customCats={customCats}
+          onAddCat={addCustomCat}
+          onDeleteCat={deleteCustomCat}
+        />
+      )}
     </div>
   )
 }
@@ -439,14 +481,32 @@ export default function MoneyPage() {
 /** 记一笔表单 */
 function TxFields({
   type, setType, amount, setAmount, category, setCategory, date, setDate, note, setNote,
+  customCats, onAddCat, onDeleteCat,
 }: {
   type: TxType; setType: (t: TxType) => void
   amount: string; setAmount: (v: string) => void
   category: string; setCategory: (v: string) => void
   date: string; setDate: (v: string) => void
   note: string; setNote: (v: string) => void
+  customCats: CustomCat[]
+  onAddCat: (type: TxType, label: string, emoji: string) => void
+  onDeleteCat: (id: number) => void
 }) {
-  const cats = type === 'expense' ? EXPENSE_CATS : INCOME_CATS
+  const builtin = type === 'expense' ? EXPENSE_CATS : INCOME_CATS
+  const custom = customCats.filter((c) => c.type === type)
+  const [addingCat, setAddingCat] = useState(false)
+  const [newCatLabel, setNewCatLabel] = useState('')
+  const [selectedEmoji, setSelectedEmoji] = useState('📦')
+
+  const submitNewCat = () => {
+    const label = newCatLabel.trim()
+    if (!label) return
+    onAddCat(type, label, selectedEmoji)
+    setNewCatLabel('')
+    setSelectedEmoji('📦')
+    setAddingCat(false)
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
@@ -485,8 +545,8 @@ function TxFields({
           onChange={(e) => setNote(e.target.value)}
         />
       </div>
-      <div className="flex flex-wrap gap-1.5">
-        {cats.map((c) => (
+      <div className="flex flex-wrap gap-1.5 items-center">
+        {builtin.map((c) => (
           <button
             key={c.key}
             onClick={() => setCategory(c.key)}
@@ -498,12 +558,59 @@ function TxFields({
             <span className="ml-1 text-xs text-stone-600">{c.label}</span>
           </button>
         ))}
+        {/* 自定义分类 */}
+        {custom.map((c) => (
+          <div key={c.key} className="relative group/cat inline-flex">
+            <button
+              onClick={() => setCategory(c.key)}
+              className={`rounded-xl px-2.5 py-1.5 text-sm transition border ${
+                category === c.key ? 'bg-orange-100 border-orange-300 shadow-sm scale-105' : 'border-transparent hover:bg-orange-50'
+              }`}
+            >
+              <span>{c.emoji}</span>
+              <span className="ml-1 text-xs text-stone-600">{c.label}</span>
+            </button>
+            <button
+              className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-stone-300 text-white text-[10px] flex items-center justify-center opacity-0 group-hover/cat:opacity-100 hover:bg-rose-400 transition"
+              onClick={(e) => { e.stopPropagation(); onDeleteCat(c.id) }}
+              title="删除自定义分类"
+            >
+              <X size={8} />
+            </button>
+          </div>
+        ))}
+        {/* 添加自定义分类 */}
+        {addingCat ? (
+          <span className="inline-flex items-center gap-1.5">
+            <input
+              className="warm-input !py-1.5 !px-2.5 text-sm w-28"
+              placeholder="分类名称"
+              value={newCatLabel}
+              autoFocus
+              onChange={(e) => setNewCatLabel(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') submitNewCat(); if (e.key === 'Escape') setAddingCat(false) }}
+            />
+            <button className="warm-btn !px-3 !py-2" onClick={submitNewCat} aria-label="确认新增">
+              <Plus size={14} />
+            </button>
+            <button className="warm-btn-ghost !px-3 !py-2" onClick={() => setAddingCat(false)} aria-label="取消">
+              <X size={14} />
+            </button>
+          </span>
+        ) : (
+          <button
+            className="rounded-xl px-2.5 py-1.5 text-sm border border-dashed border-orange-300 text-orange-600 hover:bg-orange-50 transition"
+            onClick={() => setAddingCat(true)}
+          >
+            ＋ 自定义
+          </button>
+        )}
       </div>
     </div>
   )
 }
 
-function AddForm({ onSaved }: { onSaved: () => void }) {
+function AddForm({ onSaved, customCats, onAddCat, onDeleteCat }: { onSaved: () => void; customCats: CustomCat[]; onAddCat: (type: TxType, label: string, emoji: string) => void; onDeleteCat: (id: number) => void }) {
   const [type, setType] = useState<TxType>('expense')
   const [amount, setAmount] = useState('')
   const [category, setCategory] = useState('food')
@@ -542,6 +649,9 @@ function AddForm({ onSaved }: { onSaved: () => void }) {
           category={category} setCategory={setCategory}
           date={date} setDate={setDate}
           note={note} setNote={setNote}
+          customCats={customCats}
+          onAddCat={onAddCat}
+          onDeleteCat={onDeleteCat}
         />
       </div>
       <div className="mt-3 flex justify-end">
@@ -553,7 +663,7 @@ function AddForm({ onSaved }: { onSaved: () => void }) {
   )
 }
 
-function EditTxDialog({ tx, onClose, onSaved }: { tx: Transaction; onClose: () => void; onSaved: () => void }) {
+function EditTxDialog({ tx, onClose, onSaved, customCats, onAddCat, onDeleteCat }: { tx: Transaction; onClose: () => void; onSaved: () => void; customCats: CustomCat[]; onAddCat: (type: TxType, label: string, emoji: string) => void; onDeleteCat: (id: number) => void }) {
   const [type, setType] = useState<TxType>(tx.type)
   const [amount, setAmount] = useState(String(tx.amount / 100))
   const [category, setCategory] = useState(tx.category)
@@ -584,6 +694,9 @@ function EditTxDialog({ tx, onClose, onSaved }: { tx: Transaction; onClose: () =
             category={category} setCategory={setCategory}
             date={date} setDate={setDate}
             note={note} setNote={setNote}
+            customCats={customCats}
+            onAddCat={onAddCat}
+            onDeleteCat={onDeleteCat}
           />
         </div>
         <div className="mt-5 flex justify-end gap-2">
