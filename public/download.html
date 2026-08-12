@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#141a33">
+<title>星光手帐 App 下载</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: radial-gradient(1200px 600px at 80% -10%, #2b3a6e 0%, transparent 60%),
+                radial-gradient(900px 500px at -10% 110%, #3a2b5e 0%, transparent 55%),
+                linear-gradient(160deg, #10162e 0%, #0c1024 55%, #0a0d1e 100%);
+    color: #eef1fb;
+    min-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  /* 星光点缀 */
+  .stars { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+  .stars i { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #fff; opacity: .55; animation: twinkle 3.2s ease-in-out infinite; }
+  .stars i:nth-child(2n) { width: 2px; height: 2px; animation-delay: 1.1s; }
+  .stars i:nth-child(3n) { width: 4px; height: 4px; animation-delay: 2.2s; }
+  @keyframes twinkle { 0%,100% { opacity: .15; } 50% { opacity: .8; } }
+
+  .card {
+    position: relative; z-index: 1;
+    width: 100%; max-width: 400px;
+    background: rgba(255,255,255,.055);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 24px;
+    padding: 36px 28px 30px;
+    text-align: center;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 24px 60px rgba(0,0,0,.45);
+  }
+  .logo {
+    width: 84px; height: 84px; margin: 0 auto 18px;
+    border-radius: 22px;
+    background: linear-gradient(135deg, #f7c948 0%, #f2994a 55%, #eb5757 120%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 44px;
+    box-shadow: 0 10px 26px rgba(242,153,74,.35);
+  }
+  h1 { font-size: 26px; font-weight: 700; letter-spacing: 2px; }
+  .ver { margin-top: 8px; font-size: 13px; color: #aab3d8; }
+  .ver b { color: #f7c948; font-weight: 600; }
+
+  .feat {
+    list-style: none; margin: 22px 0 26px; text-align: left;
+    display: grid; gap: 10px;
+  }
+  .feat li {
+    font-size: 14px; color: #cdd4f0;
+    background: rgba(255,255,255,.05);
+    border-radius: 12px; padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .feat li span { font-size: 17px; }
+
+  .btn {
+    display: block; width: 100%;
+    padding: 15px 0; border-radius: 16px;
+    background: linear-gradient(135deg, #f7c948, #f2994a);
+    color: #241a02; font-size: 17px; font-weight: 700; letter-spacing: 1px;
+    text-decoration: none;
+    box-shadow: 0 10px 26px rgba(242,153,74,.35);
+    transition: transform .12s ease;
+  }
+  .btn:active { transform: scale(.97); }
+
+  .hint { margin-top: 14px; font-size: 13px; color: #8f99c2; }
+  .safe { margin-top: 6px; font-size: 12px; color: #6d77a0; }
+
+  /* 微信引导遮罩 */
+  .wx-mask {
+    position: fixed; inset: 0; z-index: 10;
+    background: rgba(8,10,22,.96);
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    padding: 32px 24px; text-align: center;
+  }
+  .wx-mask .corner {
+    position: absolute; top: 16px; right: 20px;
+    font-size: 15px; color: #f7c948; font-weight: 700;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .wx-mask .corner .dots { font-size: 18px; letter-spacing: 1px; }
+  .wx-mask .arrow { font-size: 40px; margin: 46px 0 10px; animation: bounce 1.4s ease-in-out infinite; }
+  @keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  .wx-mask .tip { font-size: 20px; line-height: 1.7; color: #fff; font-weight: 600; }
+  .wx-mask .tip b { color: #f7c948; font-size: 24px; }
+  .wx-mask .sub { margin-top: 12px; font-size: 14px; color: #9aa4cf; line-height: 1.8; }
+  .linkbox { margin-top: 26px; width: 100%; }
+  .linkbox input {
+    width: 100%; padding: 13px 14px; border-radius: 12px;
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18);
+    color: #eef1fb; font-size: 13px; text-align: center; outline: none;
+  }
+  .linkbox .lbl { font-size: 12px; color: #8f99c2; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+  <div class="stars" id="stars"></div>
+
+  <div class="card">
+    <div class="logo">⭐</div>
+    <h1>星光手帐</h1>
+    <p class="ver">Android 版 <b>v1.1.0</b> · 已接入 Health Connect 手表同步</p>
+    <ul class="feat">
+      <li><span>📒</span>手帐 · 日记 · 书架 · PDF 阅读</li>
+      <li><span>💪</span>健身打卡 · 跑步 · 力量训练</li>
+      <li><span>💰</span>记账 · 预算 · 分类统计</li>
+      <li><span>⌚</span>小米 / 红米手表运动数据自动同步</li>
+    </ul>
+    <a class="btn" id="dlBtn" href="starlight-hc-v1.1.0.apk">立即下载安装（4.2 MB）</a>
+    <p class="hint" id="hint">正在准备下载…</p>
+    <p class="safe">HTTPS 加密下载 · 约 4.2 MB</p>
+  </div>
+
+  <!-- 微信内引导 -->
+  <div class="wx-mask" id="wxMask">
+    <div class="corner"><span>点右上角</span><span class="dots">···</span></div>
+    <div class="arrow">⬆️</div>
+    <p class="tip">请点击右上角 <b>···</b><br>选择「在浏览器中打开」</p>
+    <p class="sub">微信无法直接安装 App<br>用浏览器打开后即可自动下载</p>
+    <div class="linkbox">
+      <div class="lbl">也可以长按下方链接复制，用浏览器打开</div>
+      <input type="text" readonly value="https://zixin.space/download.html" onclick="this.select()">
+    </div>
+  </div>
+
+<script>
+  // 星光
+  (function () {
+    var box = document.getElementById('stars'), html = '';
+    for (var i = 0; i < 36; i++) {
+      html += '<i style="left:' + (Math.random() * 100).toFixed(2) + '%;top:' +
+        (Math.random() * 100).toFixed(2) + '%;animation-delay:' +
+        (Math.random() * 3).toFixed(2) + 's"></i>';
+    }
+    box.innerHTML = html;
+  })();
+
+  // 微信 UA 判断
+  var isWx = /MicroMessenger/i.test(navigator.userAgent);
+  if (isWx) {
+    document.getElementById('wxMask').style.display = 'flex';
+  } else {
+    // 浏览器：自动开始下载
+    document.getElementById('hint').textContent = '正在自动下载，请稍候…';
+    setTimeout(function () {
+      window.location.href = 'starlight-hc-v1.1.0.apk';
+    }, 900);
+  }
+</script>
+</body>
+</html>
