@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { addDays, format, parseISO } from 'date-fns'
-import { ChevronLeft, ChevronRight, Dumbbell, Plus, Trash2, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Dumbbell, Plus, RefreshCw, Trash2, X } from 'lucide-react'
 import { api } from '../lib/api'
-import { BADMINTON_TYPES, WEATHERS, badmintonTypeOf, fmtDuration, weatherOf } from '../lib/constants'
+import { BADMINTON_TYPES, WEATHERS, WEEKDAYS, badmintonTypeOf, fmtDuration, weatherOf } from '../lib/constants'
 import type { Exercise, MatchType, Workout } from '../types'
 
-const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
+interface HcDaily { date: string; steps: number; calories: number; distanceKm: number }
+interface HcSession { id: number; title: string; type: string; start: string; durationMin: number; calories: number; distanceKm: number }
+
+/** 原生桥（仅 Android 壳存在） */
+const bridge = () => (window as any).HealthBridge as any
+const hasBridge = () => typeof (window as any).HealthBridge !== 'undefined'
+const HC_TYPE_EMOJI: Record<string, string> = { run: '🏃', walk: '🚶', cycle: '🚴', swim: '🏊', other: '🏅' }
 
 export default function FitnessPage() {
   const todayStr = format(new Date(), 'yyyy-MM-dd')
@@ -29,9 +35,9 @@ export default function FitnessPage() {
     load()
   }
 
-  const strength = workouts.filter((w) => w.type === 'strength')
-  const runs = workouts.filter((w) => w.type === 'run')
-  const badmintons = workouts.filter((w) => w.type === 'badminton')
+  const strength = useMemo(() => workouts.filter((w) => w.type === 'strength'), [workouts])
+  const runs = useMemo(() => workouts.filter((w) => w.type === 'run'), [workouts])
+  const badmintons = useMemo(() => workouts.filter((w) => w.type === 'badminton'), [workouts])
 
   const d = parseISO(date)
   const summary = useMemo(() => {
@@ -47,38 +53,184 @@ export default function FitnessPage() {
     return parts
   }, [strength, runs, badmintons])
 
+  /* ---------------- 手表数据（Health Connect） ---------------- */
+  const [hc, setHc] = useState<{ sdk: string; granted: boolean } | null>(null)
+  const [hcSync, setHcSync] = useState<{ lastSyncAt: string | null; daily: HcDaily[]; sessions: HcSession[] } | null>(null)
+  const [hcBusy, setHcBusy] = useState(false)
+  const [hcMsg, setHcMsg] = useState('')
+
+  const loadHc = useCallback(async () => {
+    try {
+      const data = await api.getFitnessSync()
+      setHcSync(data)
+    } catch { /* 桌面端无此接口时静默 */ }
+  }, [])
+
+  const doSync = useCallback(() => {
+    const b = bridge()
+    if (!b) return
+    setHcBusy(true)
+    setHcMsg('')
+    const done = (json: string) => {
+      let r: any
+      try { r = JSON.parse(json) } catch { r = null }
+      setHcBusy(false)
+      if (r && r.ok) {
+        api.syncFitness({ daily: r.daily || [], sessions: r.sessions || [] })
+          .then(() => {
+            setHcMsg(`✓ 已同步 ${(r.daily || []).length} 天数据、${(r.sessions || []).length} 条运动记录`)
+            loadHc()
+          })
+          .catch(() => setHcMsg('同步失败：服务器保存出错'))
+      } else if (r && r.error === 'permission_denied') {
+        setHcMsg('未获得健康数据授权，点击上方「授权」按钮开通')
+      } else {
+        setHcMsg('同步失败：' + ((r && r.error) || '未知错误'))
+      }
+    }
+    ;(window as any).__hcSyncResult__ = done
+    b.syncHealthData(30)
+  }, [loadHc])
+
+  const refreshHc = useCallback((silentSync = false) => {
+    const b = bridge()
+    if (!b) return
+    try {
+      const st = JSON.parse(b.checkHealth())
+      setHc({ sdk: st.sdk, granted: !!st.granted })
+      if (st.sdk === 'available' && st.granted) {
+        loadHc()
+        if (silentSync) doSync()
+      }
+    } catch { setHc(null) }
+  }, [loadHc, doSync])
+
+  // 桥存在时：初始化检查 + 注册原生回调（授权返回 / App 回到前台）
+  useEffect(() => {
+    if (!hasBridge()) return
+    refreshHc(true)
+    ;(window as any).__hcPermissionsChanged__ = () => refreshHc(true)
+    ;(window as any).__hcAppResumed__ = () => {
+      try {
+        const st = JSON.parse(bridge().checkHealth())
+        if (st.sdk === 'available' && st.granted) doSync()
+      } catch { /* ignore */ }
+    }
+    return () => {
+      ;(window as any).__hcPermissionsChanged__ = undefined
+      ;(window as any).__hcAppResumed__ = undefined
+      ;(window as any).__hcSyncResult__ = undefined
+    }
+  }, [refreshHc, doSync])
+
+  const todayHc = hcSync?.daily.find((x) => x.date === todayStr)
+  const hcRecent = hcSync?.sessions.slice(0, 5) ?? []
+
   return (
     <div className="space-y-5">
       {/* 头部 + 日期导航 */}
-      <header className="flex flex-wrap items-center justify-between gap-3">
+      <header className="flex items-center justify-between gap-3">
         <div>
           <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-orange-950">健身</h2>
-          <p className="mt-1 text-sm text-stone-500">文明精神，野蛮体魄。</p>
+          <p className="mt-1 hidden text-sm text-stone-500 sm:block">文明精神，野蛮体魄。</p>
         </div>
-        <div className="flex items-center gap-1">
-          <button className="warm-btn-ghost !px-2" onClick={() => setDate(format(addDays(d, -1), 'yyyy-MM-dd'))}>
+        <div className="flex items-center gap-0.5 sm:gap-1">
+          <button className="warm-btn-ghost min-h-11 min-w-11 !px-2" aria-label="前一天" onClick={() => setDate(format(addDays(d, -1), 'yyyy-MM-dd'))}>
             <ChevronLeft size={16} />
           </button>
-          <span className="min-w-40 text-center text-sm font-medium text-stone-700">
+          <span className="min-w-28 text-center text-sm font-medium text-stone-700 sm:min-w-40">
             {d.getMonth() + 1}月{d.getDate()}日 周{WEEKDAYS[d.getDay()]}
           </span>
-          <button className="warm-btn-ghost !px-2" onClick={() => setDate(format(addDays(d, 1), 'yyyy-MM-dd'))} disabled={date >= todayStr}>
+          <button className="warm-btn-ghost min-h-11 min-w-11 !px-2" aria-label="后一天" onClick={() => setDate(format(addDays(d, 1), 'yyyy-MM-dd'))} disabled={date >= todayStr}>
             <ChevronRight size={16} />
           </button>
           {date !== todayStr && (
-            <button className="warm-btn-ghost text-xs" onClick={() => setDate(todayStr)}>回今天</button>
+            <button className="warm-btn-ghost min-h-11 text-xs" onClick={() => setDate(todayStr)}>回今天</button>
           )}
         </div>
       </header>
 
       {/* 当日概览 */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5 sm:gap-2">
         {summary.length > 0 ? (
-          summary.map((s) => <span key={s} className="warm-chip !text-sm !px-3.5 !py-1.5">💪 {s}</span>)
+          summary.map((s) => <span key={s} className="warm-chip !px-3 !py-1.5 !text-xs sm:!px-3.5 sm:!text-sm">💪 {s}</span>)
         ) : (
           <span className="text-sm text-stone-400">这一天还没有运动记录，从下面开始吧</span>
         )}
       </div>
+
+      {/* 手表数据（仅 Android 壳 + Health Connect 存在时显示） */}
+      {hc && (
+        <section className="warm-card p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="font-semibold text-orange-950 flex items-center gap-2">
+              <RefreshCw size={17} className="text-orange-500" /> 手表数据
+            </h3>
+            {hc.sdk === 'available' && (
+              <button
+                className="warm-btn !px-3 !py-2 text-xs"
+                disabled={hcBusy}
+                onClick={() => (hc.granted ? doSync() : bridge().requestPermissions())}
+              >
+                {hcBusy ? '同步中…' : hc.granted ? '立即同步' : '授权并同步'}
+              </button>
+            )}
+          </div>
+
+          {hc.sdk !== 'available' ? (
+            <p className="mt-3 text-sm text-stone-500">
+              {hc.sdk === 'update_required'
+                ? 'Health Connect 需要更新后才能使用，请在系统设置中更新。'
+                : '当前设备没有 Health Connect，无法读取手表数据（可在 Play 商店搜索 Health Connect 安装）。'}
+            </p>
+          ) : !hc.granted ? (
+            <p className="mt-3 text-sm text-stone-500">授权后即可自动同步小米/红米手表的步数、卡路里与运动记录。</p>
+          ) : (
+            <div className="mt-3">
+              {/* 今日汇总 */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-xl border border-orange-100 bg-orange-50/60 px-3 py-2.5 text-center">
+                  <p className="text-lg font-bold text-orange-800 whitespace-nowrap">{todayHc ? todayHc.steps.toLocaleString() : '—'}</p>
+                  <p className="mt-0.5 text-xs text-stone-500">今日步数</p>
+                </div>
+                <div className="rounded-xl border border-orange-100 bg-orange-50/60 px-3 py-2.5 text-center">
+                  <p className="text-lg font-bold text-orange-800 whitespace-nowrap">{todayHc ? todayHc.calories : '—'}</p>
+                  <p className="mt-0.5 text-xs text-stone-500">千卡</p>
+                </div>
+                <div className="rounded-xl border border-orange-100 bg-orange-50/60 px-3 py-2.5 text-center">
+                  <p className="text-lg font-bold text-orange-800 whitespace-nowrap">{todayHc && todayHc.distanceKm ? todayHc.distanceKm + 'km' : '—'}</p>
+                  <p className="mt-0.5 text-xs text-stone-500">距离</p>
+                </div>
+              </div>
+
+              {hcMsg && <p className="mt-2.5 text-xs text-orange-700">{hcMsg}</p>}
+
+              {hcRecent.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs font-medium text-stone-500">最近运动（{hcSync!.sessions.length} 条）</p>
+                  <ul className="mt-1">
+                    {hcRecent.map((s) => (
+                      <li key={s.id} className="flex items-center gap-3 border-b border-orange-100/80 py-2 text-sm last:border-0">
+                        <span className="text-base">{HC_TYPE_EMOJI[s.type] ?? '🏅'}</span>
+                        <span className="flex-1 text-stone-800 truncate">{s.title}</span>
+                        <span className="shrink-0 text-xs text-stone-400">
+                          {s.start.slice(5, 10).replace('-', '/')}
+                          {s.durationMin > 0 ? ` · ${fmtDuration(s.durationMin)}` : ''}
+                          {s.distanceKm > 0 ? ` · ${s.distanceKm}km` : ''}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {hcSync?.lastSyncAt && (
+                <p className="mt-2 text-[11px] text-stone-400">上次同步：{hcSync.lastSyncAt.replace('T', ' ').slice(0, 16)}</p>
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       <StrengthCard date={date} entries={strength} exercises={exercises} onChanged={load} onRemove={remove} />
       <RunCard date={date} entries={runs} onChanged={load} onRemove={remove} />
@@ -149,7 +301,7 @@ function StrengthCard({
   }
 
   return (
-    <section className="warm-card p-5">
+    <section className="warm-card p-4 sm:p-5">
       <h3 className="font-semibold text-orange-950 flex items-center gap-2">
         <Dumbbell size={17} className="text-orange-500" /> 力量训练
       </h3>
@@ -160,7 +312,7 @@ function StrengthCard({
           <span key={e.id} className="group/ex relative inline-flex">
             <button
               onClick={() => setSelected(e.name)}
-              className={`rounded-xl px-2.5 py-1.5 text-xs sm:text-sm transition border ${
+              className={`rounded-xl px-3 py-2 text-xs sm:text-sm transition border ${
                 current === e.name
                   ? 'bg-orange-100 border-orange-300 font-medium text-orange-800 shadow-sm'
                   : 'border-transparent bg-white/60 text-stone-500 hover:bg-orange-50'
@@ -171,9 +323,10 @@ function StrengthCard({
             <button
               onClick={() => removeExercise(e)}
               title={`删除项目「${e.name}」`}
-              className="absolute -right-1 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full bg-stone-300 text-white group-hover/ex:flex hover:bg-rose-400"
+              aria-label={`删除项目「${e.name}」`}
+              className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-stone-300 text-white hover:bg-rose-400 sm:hidden sm:group-hover/ex:flex"
             >
-              <X size={10} />
+              <X size={11} />
             </button>
           </span>
         ))}
@@ -187,12 +340,12 @@ function StrengthCard({
               onChange={(e) => setNewEx(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && addExercise()}
             />
-            <button className="warm-btn !px-2.5 !py-1.5" onClick={addExercise}><Plus size={14} /></button>
-            <button className="warm-btn-ghost !px-2 !py-1.5" onClick={() => setAddingEx(false)}><X size={14} /></button>
+            <button className="warm-btn !px-3 !py-2" onClick={addExercise} aria-label="确认新增项目"><Plus size={14} /></button>
+            <button className="warm-btn-ghost !px-3 !py-2" onClick={() => setAddingEx(false)} aria-label="取消新增项目"><X size={14} /></button>
           </span>
         ) : (
           <button
-            className="rounded-xl px-3 py-1.5 text-sm border border-dashed border-orange-300 text-orange-600 hover:bg-orange-50 transition"
+            className="rounded-xl px-3 py-2 text-sm border border-dashed border-orange-300 text-orange-600 hover:bg-orange-50 transition"
             onClick={() => setAddingEx(true)}
           >
             ＋ 自定义项目
@@ -202,37 +355,44 @@ function StrengthCard({
 
       {/* 录入区：重量 kg × 组数 × 每组个数 */}
       {current && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-orange-100 bg-orange-50/70 px-3 py-2.5">
-          <span className="text-xs font-medium text-orange-800">录入「{current}」</span>
-          <input
-            className="warm-input w-20 !bg-white"
-            placeholder="重量"
-            inputMode="decimal"
-            value={kg}
-            onChange={(e) => setKg(e.target.value.replace(/[^\d.]/g, ''))}
-          />
-          <span className="text-sm text-stone-400">kg ×</span>
-          <input
-            className="warm-input w-16 !bg-white"
-            placeholder="组数"
-            inputMode="numeric"
-            value={sets}
-            onChange={(e) => setSets(e.target.value.replace(/\D/g, ''))}
-          />
-          <span className="text-sm text-stone-400">组 ×</span>
-          <input
-            className="warm-input w-16 !bg-white"
-            placeholder="个数"
-            inputMode="numeric"
-            value={reps}
-            onChange={(e) => setReps(e.target.value.replace(/\D/g, ''))}
-            onKeyDown={(e) => e.key === 'Enter' && addEntry()}
-          />
-          <span className="text-sm text-stone-400">个/组</span>
-          <button className="warm-btn !py-2" onClick={addEntry}>
-            <Plus size={15} /> 添加
-          </button>
-          <span className="text-xs text-stone-300">自重项目重量填 0</span>
+        <div className="mt-3 rounded-xl border border-orange-100 bg-orange-50/70 px-3 py-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-medium text-orange-800">录入「{current}」</span>
+            <span className="text-[11px] text-stone-400">自重项目重量填 0</span>
+          </div>
+          <div className="mt-2 flex items-center gap-1.5 sm:gap-2">
+            <input
+              className="warm-input min-w-0 flex-1 !bg-white !px-2"
+              placeholder="重量"
+              inputMode="decimal"
+              aria-label="重量（kg）"
+              value={kg}
+              onChange={(e) => setKg(e.target.value.replace(/[^\d.]/g, ''))}
+            />
+            <span className="shrink-0 text-xs text-stone-400 sm:text-sm">kg ×</span>
+            <input
+              className="warm-input min-w-0 flex-1 !bg-white !px-2"
+              placeholder="组数"
+              inputMode="numeric"
+              aria-label="组数"
+              value={sets}
+              onChange={(e) => setSets(e.target.value.replace(/\D/g, ''))}
+            />
+            <span className="shrink-0 text-xs text-stone-400 sm:text-sm">组 ×</span>
+            <input
+              className="warm-input min-w-0 flex-1 !bg-white !px-2"
+              placeholder="个数"
+              inputMode="numeric"
+              aria-label="每组个数"
+              value={reps}
+              onChange={(e) => setReps(e.target.value.replace(/\D/g, ''))}
+              onKeyDown={(e) => e.key === 'Enter' && addEntry()}
+            />
+            <span className="shrink-0 text-xs text-stone-400 sm:text-sm">个</span>
+            <button className="warm-btn shrink-0 !px-3 !py-2" onClick={addEntry}>
+              <Plus size={15} /> 添加
+            </button>
+          </div>
         </div>
       )}
 
@@ -262,11 +422,12 @@ function StrengthCard({
                         ) : null}
                       </span>
                       <button
-                        className="opacity-0 group-hover:opacity-100 warm-btn-ghost !px-1.5 !py-1 text-stone-400 hover:text-red-500 transition-opacity"
+                        className="warm-btn-ghost !p-2 text-stone-400 hover:text-red-500 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
                         onClick={() => onRemove(w.id)}
                         title="删除"
+                        aria-label="删除该条记录"
                       >
-                        <Trash2 size={13} />
+                        <Trash2 size={15} />
                       </button>
                     </li>
                   ))}
@@ -301,7 +462,7 @@ function RunCard({ date, entries, onChanged, onRemove }: { date: string; entries
   }
 
   return (
-    <section className="warm-card p-5">
+    <section className="warm-card p-4 sm:p-5">
       <h3 className="font-semibold text-orange-950">🏃 跑步</h3>
       <ul className="mt-2">
         {entries.map((w) => (
@@ -312,32 +473,35 @@ function RunCard({ date, entries, onChanged, onRemove }: { date: string; entries
               {w.durationMin ? <><b className="text-orange-800">{fmtDuration(w.durationMin)}</b></> : null}
               {w.weather && <span className="ml-2">{weatherOf(w.weather)?.emoji} {weatherOf(w.weather)?.label}</span>}
             </span>
-            <button className="opacity-0 group-hover:opacity-100 warm-btn-ghost !px-1.5 !py-1 text-stone-400 hover:text-red-500 transition-opacity" onClick={() => onRemove(w.id)} title="删除">
-              <Trash2 size={13} />
+            <button className="warm-btn-ghost !p-2 text-stone-400 hover:text-red-500 transition-opacity sm:opacity-0 sm:group-hover:opacity-100" onClick={() => onRemove(w.id)} title="删除" aria-label="删除该条记录">
+              <Trash2 size={15} />
             </button>
           </li>
         ))}
         {entries.length === 0 && <li className="py-3 text-xs text-stone-400">今天还没有跑步记录</li>}
       </ul>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <input className="warm-input w-24" placeholder="公里数" inputMode="decimal" value={dist} onChange={(e) => setDist(e.target.value.replace(/[^\d.]/g, ''))} />
-        <span className="text-sm text-stone-400">km</span>
-        <input className="warm-input w-24" placeholder="时长" inputMode="numeric" value={dur} onChange={(e) => setDur(e.target.value.replace(/\D/g, ''))} />
-        <span className="text-sm text-stone-400">分钟</span>
+      <div className="mt-3 space-y-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <input className="warm-input min-w-0 flex-1 !px-2" placeholder="公里数" inputMode="decimal" aria-label="公里数" value={dist} onChange={(e) => setDist(e.target.value.replace(/[^\d.]/g, ''))} />
+          <span className="shrink-0 text-xs text-stone-400 sm:text-sm">km</span>
+          <input className="warm-input min-w-0 flex-1 !px-2" placeholder="时长" inputMode="numeric" aria-label="时长（分钟）" value={dur} onChange={(e) => setDur(e.target.value.replace(/\D/g, ''))} />
+          <span className="shrink-0 text-xs text-stone-400 sm:text-sm">分钟</span>
+          <button className="warm-btn shrink-0 !px-3 !py-2" onClick={add}><Plus size={15} /> 添加</button>
+        </div>
         <div className="flex gap-1">
           {WEATHERS.slice(0, 5).map((w) => (
             <button
               key={w.key}
               title={w.label}
+              aria-label={`天气：${w.label}`}
               onClick={() => setWeather(weather === w.key ? '' : w.key)}
-              className={`rounded-lg px-1.5 py-1 text-base transition border ${weather === w.key ? 'bg-orange-100 border-orange-300' : 'border-transparent hover:bg-orange-50'}`}
+              className={`flex-1 rounded-lg px-1.5 py-2 text-base transition border sm:flex-none ${weather === w.key ? 'bg-orange-100 border-orange-300' : 'border-transparent hover:bg-orange-50'}`}
             >
               {w.emoji}
             </button>
           ))}
         </div>
-        <button className="warm-btn !py-2" onClick={add}><Plus size={15} /> 添加</button>
       </div>
     </section>
   )
@@ -358,7 +522,7 @@ function BadmintonCard({ date, entries, onChanged, onRemove }: { date: string; e
   }
 
   return (
-    <section className="warm-card p-5">
+    <section className="warm-card p-4 sm:p-5">
       <h3 className="font-semibold text-orange-950">🏸 羽毛球</h3>
       <ul className="mt-2">
         {entries.map((w) => (
@@ -368,29 +532,31 @@ function BadmintonCard({ date, entries, onChanged, onRemove }: { date: string; e
               <span className="mx-1.5 text-stone-300">·</span>
               {fmtDuration(w.durationMin ?? 0)}
             </span>
-            <button className="opacity-0 group-hover:opacity-100 warm-btn-ghost !px-1.5 !py-1 text-stone-400 hover:text-red-500 transition-opacity" onClick={() => onRemove(w.id)} title="删除">
-              <Trash2 size={13} />
+            <button className="warm-btn-ghost !p-2 text-stone-400 hover:text-red-500 transition-opacity sm:opacity-0 sm:group-hover:opacity-100" onClick={() => onRemove(w.id)} title="删除" aria-label="删除该条记录">
+              <Trash2 size={15} />
             </button>
           </li>
         ))}
         {entries.length === 0 && <li className="py-3 text-xs text-stone-400">今天还没有打球记录</li>}
       </ul>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="mt-3 space-y-2">
         <div className="flex rounded-xl bg-orange-100/70 p-1">
           {BADMINTON_TYPES.map((t) => (
             <button
               key={t.key}
               onClick={() => setMatchType(t.key)}
-              className={`rounded-lg px-3.5 py-1.5 text-sm transition ${matchType === t.key ? 'bg-white text-orange-700 font-semibold shadow-sm' : 'text-stone-500'}`}
+              className={`flex-1 rounded-lg px-3 py-2 text-sm transition sm:flex-none sm:px-3.5 ${matchType === t.key ? 'bg-white text-orange-700 font-semibold shadow-sm' : 'text-stone-500'}`}
             >
               {t.label}
             </button>
           ))}
         </div>
-        <input className="warm-input w-24" placeholder="时长" inputMode="numeric" value={dur} onChange={(e) => setDur(e.target.value.replace(/\D/g, ''))} onKeyDown={(e) => e.key === 'Enter' && add()} />
-        <span className="text-sm text-stone-400">分钟</span>
-        <button className="warm-btn !py-2" onClick={add}><Plus size={15} /> 添加</button>
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <input className="warm-input min-w-0 flex-1 !px-2" placeholder="时长" inputMode="numeric" aria-label="时长（分钟）" value={dur} onChange={(e) => setDur(e.target.value.replace(/\D/g, ''))} onKeyDown={(e) => e.key === 'Enter' && add()} />
+          <span className="shrink-0 text-xs text-stone-400 sm:text-sm">分钟</span>
+          <button className="warm-btn shrink-0 !px-3 !py-2" onClick={add}><Plus size={15} /> 添加</button>
+        </div>
       </div>
     </section>
   )

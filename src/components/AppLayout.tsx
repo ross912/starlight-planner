@@ -135,16 +135,6 @@ export default function AppLayout() {
       <main className="md:pl-60">
         <div className="mx-auto max-w-6xl px-3.5 pt-4 pb-24 md:px-10 md:py-10 md:pb-10">
           <Outlet />
-          <footer className="mt-12 text-center text-xs text-stone-400/80">
-            <a
-              href="https://beian.miit.gov.cn/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-stone-500 transition-colors"
-            >
-              皖ICP备2026026036号-1
-            </a>
-          </footer>
         </div>
       </main>
 
@@ -181,6 +171,18 @@ function SettingsDialog({
 }) {
   const [name, setName] = useState(username)
   const [status, setStatus] = useState('')
+  const [persona, setPersona] = useState('')
+  const [personaStatus, setPersonaStatus] = useState('')
+  const [defaultPersona, setDefaultPersona] = useState('')
+
+  const loadPersona = async () => {
+    try {
+      const r = await api.getPersona()
+      setPersona(r.persona)
+      setDefaultPersona(r.defaultPersona)
+    } catch { /* ignore */ }
+  }
+  useEffect(() => { loadPersona() }, [])
 
   const saveName = async () => {
     const n = name.trim()
@@ -223,6 +225,53 @@ function SettingsDialog({
           </button>
         </div>
         {status && <p className={`mt-1.5 text-xs ${status.includes('✓') ? 'text-emerald-600' : 'text-rose-500'}`}>{status}</p>}
+
+        {/* 系统提示词 */}
+        <div className="mt-4 border-t border-orange-100 pt-3">
+          <label className="block text-xs font-medium text-stone-500">系统提示词</label>
+          <p className="text-[10px] text-stone-400 mt-0.5">
+            自定义 AI 的身份和说话风格。清空即恢复默认。
+          </p>
+          <textarea
+            className="warm-input mt-1.5 w-full min-h-[80px] text-xs leading-relaxed resize-y"
+            value={persona}
+            onChange={(e) => setPersona(e.target.value)}
+            placeholder={defaultPersona || '加载中...'}
+            rows={3}
+          />
+          <div className="mt-2 flex gap-2">
+            <button
+              className="warm-btn !px-3 !py-1.5 text-xs"
+              onClick={async () => {
+                try {
+                  await api.savePersona(persona)
+                  setPersonaStatus('已保存 ✓')
+                  setTimeout(() => setPersonaStatus(''), 1500)
+                } catch { setPersonaStatus('保存失败') }
+              }}
+            >
+              保存
+            </button>
+            <button
+              className="warm-btn-ghost !px-3 !py-1.5 text-xs"
+              onClick={async () => {
+                try {
+                  await api.savePersona('')
+                  setPersona('')
+                  setPersonaStatus('已恢复默认 ✓')
+                  setTimeout(() => setPersonaStatus(''), 1500)
+                } catch { setPersonaStatus('恢复失败') }
+              }}
+            >
+              恢复默认
+            </button>
+            {personaStatus && (
+              <span className={`text-xs self-center ${personaStatus.includes('✓') ? 'text-emerald-600' : 'text-rose-500'}`}>
+                {personaStatus}
+              </span>
+            )}
+          </div>
+        </div>
 
         {/* 功能项 */}
         <div className="mt-4 space-y-1 border-t border-orange-100 pt-3">

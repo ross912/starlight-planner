@@ -1,6 +1,8 @@
 node_modules/
 dist/
+dist.pre-*/
 server/data/
-.DS_Store
 *.log
-branding/icon.iconset/
+.DS_Store
+*.pre-*CST
+*.bak*

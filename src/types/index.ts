@@ -99,17 +99,21 @@ export interface Workout {
 
 export type BookStatus = 'want' | 'reading' | 'done'
 
+export type BookFormat = 'paper' | 'ebook' | 'pdf'
+
 export interface Book {
   id: number
   title: string
   author: string
   status: BookStatus
   kind: 'paper' | 'ebook'
+  bookFormat: BookFormat
   rating: number // 0-5
   totalPages: number
   currentPage: number
   totalWords: number
   progressPct: number
+  progressPercent: number
   hasPdf: boolean
   pdfPages: number
   pdfName: string
@@ -117,6 +121,14 @@ export interface Book {
   finishedAt: string | null
   createdAt: string
   updatedAt: string
+}
+
+export interface ReadingEntry {
+  id: number
+  date: string
+  currentPage: number
+  progressPercent: number
+  createdAt: string
 }
 
 export type TxType = 'expense' | 'income'
