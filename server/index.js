@@ -276,6 +276,36 @@ if (!tableCols('exercises').includes('user_id')) {
   `)
 }
 
+// 手表健康数据同步（Health Connect）：按天汇总 + 运动会话
+db.exec(`
+  CREATE TABLE IF NOT EXISTS hc_daily (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    steps INTEGER NOT NULL DEFAULT 0,
+    calories INTEGER NOT NULL DEFAULT 0,
+    distance_km REAL NOT NULL DEFAULT 0,
+    source TEXT NOT NULL DEFAULT 'health_connect',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(user_id, date)
+  );
+  CREATE TABLE IF NOT EXISTS hc_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    title TEXT NOT NULL DEFAULT '',
+    type TEXT NOT NULL DEFAULT 'other',
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL DEFAULT '',
+    duration_min INTEGER NOT NULL DEFAULT 0,
+    calories INTEGER NOT NULL DEFAULT 0,
+    distance_km REAL NOT NULL DEFAULT 0,
+    source TEXT NOT NULL DEFAULT 'health_connect',
+    created_at TEXT NOT NULL,
+    UNIQUE(user_id, start_time)
+  );
+`)
+
 // 力量训练预设项目（每个用户一份，注册时写入）
 const PRESET_EXERCISES = ['卧推', '深蹲', '哑铃飞鸟', '上斜卧推', '高位下拉', '引体向上', '站姿推肩', '坐姿推肩', '蝴蝶机反向飞鸟', '哑铃反向飞鸟']
 function seedExercisesFor(userId) {
@@ -1021,6 +1051,43 @@ function validWorkout(body) {
   if (!Number.isFinite(dur2) || dur2 < 1 || dur2 > 1440) return 'invalid_duration'
   return { ...out, exercise: null, weightKg: null, sets: null, reps: null, durationMin: dur2, distanceKm: null, weather: null, matchType: body.matchType }
 }
+
+// ---------------- 手表同步（Health Connect） ----------------
+app.post('/api/fitness/sync', (req, res) => {
+  const uid = req.userId
+  const body = req.body || {}
+  const daily = Array.isArray(body.daily) ? body.daily : []
+  const sessions = Array.isArray(body.sessions) ? body.sessions : []
+  const t = now()
+  const D = /^\d{4}-\d{2}-\d{2}$/
+  const upsertDaily = db.prepare(`INSERT INTO hc_daily (user_id, date, steps, calories, distance_km, source, created_at, updated_at)
+    VALUES (?,?,?,?,?,?,?,?)
+    ON CONFLICT(user_id, date) DO UPDATE SET
+      steps = excluded.steps, calories = excluded.calories, distance_km = excluded.distance_km,
+      source = excluded.source, updated_at = excluded.updated_at`)
+  const insSession = db.prepare(`INSERT OR IGNORE INTO hc_sessions (user_id, title, type, start_time, end_time, duration_min, calories, distance_km, source, created_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?)`)
+  let dCount = 0, sCount = 0
+  for (const d of daily) {
+    if (!d || typeof d.date !== 'string' || !D.test(d.date)) continue
+    upsertDaily.run(uid, d.date, Number(d.steps) || 0, Number(d.calories) || 0, Number(d.distanceKm) || 0, String(d.source || 'health_connect'), t, t)
+    dCount++
+  }
+  for (const s of sessions) {
+    if (!s || typeof s.start !== 'string') continue
+    const info = insSession.run(uid, String(s.title || ''), String(s.type || 'other'), String(s.start), String(s.end || ''), Number(s.durationMin) || 0, Number(s.calories) || 0, Number(s.distanceKm) || 0, String(s.source || 'health_connect'), t)
+    sCount += Number(info.changes || 0)
+  }
+  res.json({ ok: true, dailyUpserted: dCount, sessionsInserted: sCount })
+})
+
+app.get('/api/fitness/sync', (req, res) => {
+  const uid = req.userId
+  const daily = db.prepare('SELECT date, steps, calories, distance_km AS distanceKm, updated_at FROM hc_daily WHERE user_id = ? ORDER BY date DESC LIMIT 60').all(uid)
+  const sessions = db.prepare('SELECT id, title, type, start_time AS start, end_time AS end, duration_min AS durationMin, calories, distance_km AS distanceKm, created_at FROM hc_sessions WHERE user_id = ? ORDER BY start_time DESC LIMIT 100').all(uid)
+  const last = db.prepare("SELECT MAX(ts) AS lastSyncAt FROM (SELECT updated_at AS ts FROM hc_daily WHERE user_id = ? UNION ALL SELECT created_at AS ts FROM hc_sessions WHERE user_id = ?)").get(uid, uid)
+  res.json({ lastSyncAt: (last && last.lastSyncAt) || null, daily, sessions })
+})
 
 app.get('/api/workouts', (req, res) => {
   const { date } = req.query

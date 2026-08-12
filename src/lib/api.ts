@@ -102,6 +102,8 @@ export const api = {
   createWorkout: (data: Record<string, unknown>) =>
     http<Workout>('/api/workouts', { method: 'POST', body: JSON.stringify(data) }),
   deleteWorkout: (id: number) => http<{ ok: boolean }>(`/api/workouts/${id}`, { method: 'DELETE' }),
+  getFitnessSync: () => http<{ lastSyncAt: string | null; daily: Array<{ date: string; steps: number; calories: number; distanceKm: number }>; sessions: Array<{ id: number; title: string; type: string; start: string; end: string; durationMin: number; calories: number; distanceKm: number }> }>('/api/fitness/sync'),
+  syncFitness: (payload: { daily: unknown[]; sessions: unknown[] }) => http<{ ok: boolean; dailyUpserted: number; sessionsInserted: number }>('/api/fitness/sync', { method: 'POST', body: JSON.stringify(payload) }),
 
   // 认证
   login: (username: string, password: string) =>
