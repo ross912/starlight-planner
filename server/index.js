@@ -64,6 +64,20 @@ CREATE TABLE IF NOT EXISTS budgets (
   updated_at TEXT NOT NULL,
   UNIQUE(user_id, month)
 );
+
+CREATE TABLE IF NOT EXISTS tx_categories (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL,
+  type       TEXT NOT NULL,
+  key        TEXT NOT NULL,
+  label      TEXT NOT NULL,
+  emoji      TEXT NOT NULL DEFAULT '📦',
+  color      TEXT NOT NULL DEFAULT '#a8a29e',
+  created_at TEXT NOT NULL,
+  UNIQUE(user_id, type, key)
+);
+CREATE INDEX IF NOT EXISTS idx_txcats_user ON tx_categories(user_id, type);
+
 CREATE TABLE IF NOT EXISTS books (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   title        TEXT NOT NULL,
@@ -294,7 +308,7 @@ if ((db.prepare('SELECT COUNT(*) AS c FROM users').get()).c === 0) {
   }
   const uid = Number(db.prepare('INSERT INTO users (username, password_hash, password_algo, salt, created_at) VALUES (?,?,?,?,?)')
     .run(ownerName, hash, algo, salt, now()).lastInsertRowid)
-  for (const t of ['diaries', 'todos', 'transactions', 'books', 'budgets', 'exercises', 'workouts', 'sessions']) {
+  for (const t of ['diaries', 'todos', 'transactions', 'books', 'budgets', 'exercises', 'workouts', 'sessions', 'tx_categories']) {
     db.prepare(`UPDATE ${t} SET user_id = ? WHERE user_id IS NULL`).run(uid)
   }
 }
@@ -659,6 +673,41 @@ app.delete('/api/transactions/:id', (req, res) => {
   const info = db.prepare('DELETE FROM transactions WHERE id = ? AND user_id = ?').run(Number(req.params.id), req.userId)
   res.json({ ok: true, deleted: info.changes })
 })
+
+
+// ---------------- 自定义记账分类 ----------------
+app.get('/api/transactions/categories', (req, res) => {
+  const rows = db.prepare('SELECT id, type, key, label, emoji, color FROM tx_categories WHERE user_id = ? ORDER BY id ASC').all(req.userId)
+  res.json(rows)
+})
+
+app.post('/api/transactions/categories', (req, res) => {
+  const type = String(req.body?.type ?? '').trim()
+  const label = String(req.body?.label ?? '').trim()
+  if (!type || (type !== 'expense' && type !== 'income')) return res.status(400).json({ error: 'invalid_type' })
+  if (!label || label.length > 20) return res.status(400).json({ error: 'invalid_label' })
+  const emoji = String(req.body?.emoji ?? '📦').slice(0, 4) || '📦'
+  const color = String(req.body?.color ?? '#a8a29e').slice(0, 7) || '#a8a29e'
+  // 生成 key：中文转拼音不支持，用 label 原文做 key（SQLite TEXT 无压力）
+  let key = label
+  // 如果 key 已存在，加数字后缀
+  let suffix = 1
+  while (db.prepare('SELECT id FROM tx_categories WHERE user_id = ? AND type = ? AND key = ?').get(req.userId, type, key)) {
+    suffix++
+    key = `${label}${suffix}`
+  }
+  const t = now()
+  db.prepare('INSERT INTO tx_categories (user_id, type, key, label, emoji, color, created_at) VALUES (?,?,?,?,?,?,?)')
+    .run(req.userId, type, key, label, emoji, color, t)
+  const row = db.prepare('SELECT id, type, key, label, emoji, color FROM tx_categories WHERE user_id = ? AND type = ? AND key = ?').get(req.userId, type, key)
+  res.status(201).json(row)
+})
+
+app.delete('/api/transactions/categories/:id', (req, res) => {
+  const info = db.prepare('DELETE FROM tx_categories WHERE id = ? AND user_id = ?').run(Number(req.params.id), req.userId)
+  res.json({ ok: true, deleted: info.changes })
+})
+
 
 // 月度汇总：收支合计、分类占比、每日趋势
 app.get('/api/transactions/stats', (req, res) => {

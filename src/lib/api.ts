@@ -53,6 +53,10 @@ export const api = {
     http<Transaction>(`/api/transactions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteTransaction: (id: number) => http<{ ok: boolean }>(`/api/transactions/${id}`, { method: 'DELETE' }),
   transactionStats: (month: string) => http<TxStats>(`/api/transactions/stats?month=${month}`),
+  listTxCategories: () => http<{ id: number; type: 'expense' | 'income'; key: string; label: string; emoji: string; color: string }[]>('/api/transactions/categories'),
+  addTxCategory: (data: { type: 'expense' | 'income'; label: string; emoji?: string; color?: string }) =>
+    http<{ id: number; type: string; key: string; label: string; emoji: string; color: string }>('/api/transactions/categories', { method: 'POST', body: JSON.stringify(data) }),
+  deleteTxCategory: (id: number) => http<{ ok: boolean }>(`/api/transactions/categories/${id}`, { method: 'DELETE' }),
   getBudget: (month: string) => http<{ id: number; month: string; amount: number } | null>(`/api/budgets?month=${month}`),
   saveBudget: (month: string, amount: number) => http<{ ok: boolean }>('/api/budgets', { method: 'PUT', body: JSON.stringify({ month, amount }) }),
 
