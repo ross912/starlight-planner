@@ -3,217 +3,309 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>星光手帐 · 把生活收进一本温暖的手帐</title>
-<meta name="description" content="星光手帐是一款私人部署的生活记录应用，集日记、计划、记账、阅读、健身于一体，数据完全由你自己掌控。" />
+<title>星光手帐 · 把生活收进一本安静的手帐</title>
+<meta name="description" content="星光手帐是一款私人部署的生活记录应用——日记、计划、记账、阅读、健身，汇成一处。数据在你自己手里。" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,300;1,9..144,400&family=Noto+Serif+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#fdf6ec; --bg2:#fbeedd; --ink:#43301c; --sub:#8a7355;
-    --orange:#ea580c; --orange-d:#c2410c; --orange-l:#ffedd5;
-    --card:rgba(255,255,255,.86); --line:rgba(234,88,12,.14);
-    --shadow:0 10px 40px -12px rgba(194,120,40,.28);
+    --paper:#f6f1e8; --paper-2:#efe7d8;
+    --ink:#23201b; --ink-soft:#5c554b; --ink-faint:#928a7d;
+    --line:#d9cfbd; --ochre:#b05a2a; --ochre-deep:#8a431d; --moss:#5b6b4a;
+    --max:1120px;
+    --serif:"Fraunces","Noto Serif SC",Georgia,"Songti SC",serif;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html{scroll-behavior:smooth}
-  body{
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
-    color:var(--ink); line-height:1.6;
-    background:
-      radial-gradient(1200px 600px at 80% -10%, #ffe7c7 0%, rgba(255,231,199,0) 60%),
-      radial-gradient(900px 500px at -10% 20%, #ffd9b0 0%, rgba(255,217,176,0) 55%),
-      linear-gradient(180deg,var(--bg) 0%,var(--bg2) 100%);
-    background-attachment:fixed; min-height:100vh; -webkit-font-smoothing:antialiased;
-  }
-  .wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+  html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+  body{font-family:var(--sans);color:var(--ink);background:var(--paper);line-height:1.65;-webkit-font-smoothing:antialiased;font-feature-settings:"kern" 1}
+  ::selection{background:var(--ochre);color:var(--paper)}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:var(--max);margin:0 auto;padding:0 28px}
+  .tnum{font-variant-numeric:tabular-nums}
 
-  /* nav */
-  header.nav{position:sticky;top:0;z-index:20;backdrop-filter:blur(12px);
-    background:rgba(253,246,236,.72);border-bottom:1px solid var(--line)}
-  .nav-inner{display:flex;align-items:center;justify-content:space-between;height:62px}
-  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:.5px}
-  .brand img{width:34px;height:34px;border-radius:9px;box-shadow:0 4px 12px -4px rgba(234,88,12,.5)}
-  .nav-links{display:flex;gap:26px;align-items:center}
-  .nav-links a{color:var(--sub);text-decoration:none;font-size:14px;font-weight:500;transition:.2s}
-  .nav-links a:hover{color:var(--orange-d)}
-  .btn{display:inline-flex;align-items:center;gap:7px;padding:10px 20px;border-radius:999px;font-weight:700;
-    font-size:14px;text-decoration:none;transition:.2s;cursor:pointer;border:none}
-  .btn-primary{background:linear-gradient(180deg,#f97316,#ea580c);color:#fff;
-    box-shadow:0 6px 18px -6px rgba(234,88,12,.6)}
-  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 10px 24px -6px rgba(234,88,12,.7)}
-  .btn-ghost{background:#fff;color:var(--orange-d);border:1px solid var(--line)}
-  .btn-ghost:hover{background:var(--orange-l)}
-  @media(max-width:640px){.nav-links a:not(.btn){display:none}}
+  nav.top{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--paper) 86%,transparent);backdrop-filter:blur(14px) saturate(1.2);border-bottom:1px solid var(--line)}
+  .nav-inner{display:flex;align-items:center;justify-content:space-between;height:66px}
+  .wordmark{font-family:var(--serif);font-weight:500;font-size:21px;letter-spacing:-.01em;display:flex;align-items:baseline;gap:9px}
+  .wordmark .star{color:var(--ochre);font-size:15px;position:relative;top:-1px}
+  .wordmark .en{font-size:10.5px;letter-spacing:.32em;text-transform:uppercase;color:var(--ink-faint);font-family:var(--sans);font-weight:500}
+  .nav-links{display:flex;align-items:center;gap:34px}
+  .nav-links a.link{font-size:13.5px;color:var(--ink-soft);transition:color .2s}
+  .nav-links a.link:hover{color:var(--ink)}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:999px;font-size:13.5px;font-weight:500;transition:transform .25s cubic-bezier(.2,.8,.2,1),background .2s,color .2s;cursor:pointer;border:1px solid transparent}
+  .btn-dark{background:var(--ink);color:var(--paper)}
+  .btn-dark:hover{transform:translateY(-1px);background:#000}
+  .btn-line{border-color:var(--line);color:var(--ink)}
+  .btn-line:hover{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+  @media(max-width:680px){.nav-links a.link{display:none}}
 
-  /* hero */
-  .hero{padding:74px 0 56px;text-align:center}
-  .badge{display:inline-flex;align-items:center;gap:7px;padding:6px 15px;border-radius:999px;
-    background:#fff;border:1px solid var(--line);color:var(--orange-d);font-size:13px;font-weight:600;
-    box-shadow:var(--shadow);margin-bottom:24px}
-  .badge .dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.18)}
-  h1{font-size:clamp(34px,6vw,58px);font-weight:900;letter-spacing:1px;line-height:1.15;
-    background:linear-gradient(180deg,#7c2d12,#ea580c 60%,#f97316);-webkit-background-clip:text;background-clip:text;color:transparent}
-  .slogan{margin-top:18px;font-size:clamp(16px,2.4vw,20px);color:var(--sub);max-width:620px;margin-left:auto;margin-right:auto}
-  .cta{margin-top:34px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
-  .hero-meta{margin-top:22px;font-size:13px;color:var(--sub)}
+  header.hero{padding:clamp(64px,12vw,132px) 0 clamp(56px,9vw,104px);position:relative;overflow:hidden}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:11.5px;letter-spacing:.28em;text-transform:uppercase;color:var(--ochre-deep);font-weight:600}
+  .eyebrow::before{content:"";width:26px;height:1px;background:var(--ochre)}
+  h1.display{font-family:var(--serif);font-weight:400;font-size:clamp(44px,8.4vw,104px);line-height:1.03;letter-spacing:-.025em;margin:26px 0 0;color:var(--ink);max-width:14ch}
+  h1.display em{font-style:italic;font-weight:300;color:var(--ochre)}
+  .lede{margin-top:30px;font-size:clamp(16px,2vw,19px);color:var(--ink-soft);max-width:46ch;line-height:1.7}
+  .hero-cta{margin-top:40px;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .hero-meta{margin-top:30px;font-size:13px;color:var(--ink-faint);display:flex;gap:24px;flex-wrap:wrap}
+  .hero-meta span{display:inline-flex;align-items:center;gap:7px}
+  .hero-meta .dot{width:5px;height:5px;border-radius:50%;background:var(--moss)}
+  .hero-mark{position:absolute;right:-2%;top:6%;font-family:var(--serif);font-size:clamp(180px,34vw,420px);line-height:1;font-weight:300;color:var(--paper-2);letter-spacing:-.04em;pointer-events:none;user-select:none;z-index:-1}
 
-  /* features */
-  .section{padding:54px 0}
-  .section h2{text-align:center;font-size:clamp(24px,3.4vw,34px);font-weight:800;color:#7c2d12;margin-bottom:10px}
-  .section .lead{text-align:center;color:var(--sub);margin-bottom:40px;font-size:15px}
-  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-  @media(max-width:860px){.grid{grid-template-columns:repeat(2,1fr)}}
-  @media(max-width:560px){.grid{grid-template-columns:1fr}}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:26px 24px;
-    box-shadow:var(--shadow);backdrop-filter:blur(8px);transition:.25s}
-  .card:hover{transform:translateY(-4px);box-shadow:0 18px 44px -14px rgba(194,120,40,.38)}
-  .card .ic{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;
-    font-size:25px;margin-bottom:16px;background:linear-gradient(160deg,#fff7ed,#ffedd5);
-    border:1px solid var(--line)}
-  .card h3{font-size:18px;font-weight:800;margin-bottom:8px;color:#7c2d12}
-  .card p{font-size:14px;color:var(--sub)}
-  .card .tags{margin-top:14px;display:flex;flex-wrap:wrap;gap:6px}
-  .tag{font-size:11.5px;padding:3px 10px;border-radius:999px;background:var(--orange-l);color:var(--orange-d);font-weight:600}
+  .strip{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--paper-2);overflow:hidden}
+  .marquee{display:flex;white-space:nowrap;padding:16px 0;animation:scroll 40s linear infinite}
+  .marquee:hover{animation-play-state:paused}
+  .marquee span{font-family:var(--serif);font-size:clamp(20px,3vw,30px);font-weight:300;color:var(--ink-soft);padding:0 26px;display:inline-flex;align-items:center;gap:26px}
+  .marquee span::after{content:"·";color:var(--ochre);font-size:.7em}
+  @keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 
-  /* highlight strip */
-  .strip{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:8px}
-  @media(max-width:720px){.strip{grid-template-columns:1fr}}
-  .strip .item{text-align:center;padding:28px 20px;border-radius:20px;background:var(--card);
-    border:1px solid var(--line);box-shadow:var(--shadow)}
-  .strip .big{font-size:30px;font-weight:900;color:var(--orange-d);line-height:1}
-  .strip .lab{margin-top:10px;font-size:14px;color:var(--sub)}
+  section{padding:clamp(64px,10vw,112px) 0}
+  .section-head{display:flex;align-items:baseline;justify-content:space-between;gap:24px;margin-bottom:54px;border-bottom:1px solid var(--line);padding-bottom:20px}
+  .section-head h2{font-family:var(--serif);font-weight:400;font-size:clamp(30px,4.4vw,50px);letter-spacing:-.02em}
+  .section-head .idx{font-family:var(--serif);font-style:italic;font-size:14px;color:var(--ink-faint);letter-spacing:.05em}
 
-  /* download */
-  .download{background:linear-gradient(160deg,#fff7ed,#ffedd5);border:1px solid var(--line);
-    border-radius:28px;padding:44px 32px;text-align:center;box-shadow:var(--shadow)}
-  .download h2{color:#7c2d12;margin-bottom:10px}
-  .platforms{margin-top:24px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
-  .chip{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;background:#fff;
-    border:1px solid var(--line);font-size:13px;font-weight:600;color:var(--sub)}
+  .features{display:grid;grid-template-columns:repeat(6,1fr);gap:0 40px;border-top:1px solid var(--line)}
+  .feature{padding:38px 0;border-bottom:1px solid var(--line);grid-column:span 2;display:flex;flex-direction:column;gap:14px}
+  .feature.wide{grid-column:span 3}
+  @media(max-width:860px){.feature,.feature.wide{grid-column:span 3}}
+  @media(max-width:560px){.feature,.feature.wide{grid-column:1/-1}}
+  .feature .num{font-family:var(--serif);font-style:italic;font-size:13px;color:var(--ochre);display:flex;align-items:center;gap:10px}
+  .feature .num::before{content:"";width:18px;height:1px;background:var(--ochre)}
+  .feature .row{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}
+  .feature h3{font-family:var(--serif);font-weight:500;font-size:25px;letter-spacing:-.01em;line-height:1.2}
+  .feature h3 .cn{display:block;font-size:15px;color:var(--ink-soft);font-weight:400;margin-top:4px;letter-spacing:0}
+  .feature .glyph{font-family:var(--serif);font-size:42px;font-weight:300;color:var(--ochre);line-height:1;flex-shrink:0}
+  .feature p{font-size:15px;color:var(--ink-soft);max-width:42ch}
+  .feature .tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:auto;padding-top:6px}
+  .feature .tags i{font-style:normal;font-size:11.5px;letter-spacing:.04em;color:var(--ink-soft);padding:4px 11px;border:1px solid var(--line);border-radius:999px}
 
-  footer{padding:40px 0 50px;text-align:center;color:var(--sub);font-size:13px;border-top:1px solid var(--line);margin-top:40px}
-  footer a{color:var(--orange-d);text-decoration:none}
-  .heart{color:#ef4444}
+  .philosophy{background:var(--ink);color:var(--paper);position:relative;overflow:hidden}
+  .philosophy .wrap{max-width:920px}
+  .philosophy blockquote{font-family:var(--serif);font-weight:300;font-style:italic;font-size:clamp(27px,4.8vw,52px);line-height:1.32;letter-spacing:-.01em}
+  .philosophy blockquote em{color:#e8a877;font-style:italic}
+  .philosophy .by{margin-top:34px;font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:#9c9486}
+  .philosophy .pnum{position:absolute;right:4%;bottom:8%;font-family:var(--serif);font-size:clamp(120px,20vw,240px);font-weight:300;color:#2e2a23;line-height:1;pointer-events:none}
+
+  .principles{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:var(--paper)}
+  .principle{padding:40px 34px;border-right:1px solid var(--line)}
+  .principle:last-child{border-right:0}
+  .principle .ic{font-family:var(--serif);font-size:34px;color:var(--ochre);font-weight:400;line-height:1}
+  .principle h4{font-family:var(--serif);font-weight:500;font-size:21px;margin:18px 0 10px}
+  .principle p{font-size:14.5px;color:var(--ink-soft)}
+  @media(max-width:760px){.principles{grid-template-columns:1fr}.principle{border-right:0;border-bottom:1px solid var(--line)}.principle:last-child{border-bottom:0}}
+
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:0;text-align:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .stat{padding:42px 16px;border-right:1px solid var(--line)}
+  .stat:last-child{border-right:0}
+  .stat .big{font-family:var(--serif);font-weight:400;font-size:clamp(40px,5.4vw,62px);line-height:1;letter-spacing:-.02em;color:var(--ochre-deep)}
+  .stat .lab{margin-top:12px;font-size:13px;color:var(--ink-soft)}
+  @media(max-width:680px){.stats-row{grid-template-columns:repeat(2,1fr)}.stat:nth-child(2){border-right:0}.stat:nth-child(1),.stat:nth-child(2){border-bottom:1px solid var(--line)}}
+
+  .cta-block{text-align:center}
+  .cta-block h2{font-family:var(--serif);font-weight:400;font-size:clamp(34px,6vw,64px);letter-spacing:-.02em;line-height:1.1;max-width:18ch;margin:0 auto}
+  .cta-block h2 em{font-style:italic;color:var(--ochre)}
+  .cta-block p{margin:24px auto 0;color:var(--ink-soft);font-size:16px;max-width:42ch}
+  .cta-block .hero-cta{justify-content:center;margin-top:40px}
+  .cta-block .note{margin-top:22px;font-size:13px;color:var(--ink-faint)}
+
+  footer{border-top:1px solid var(--line);padding:40px 0 56px}
+  .foot-inner{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+  .foot-inner .meta{font-size:13px;color:var(--ink-faint)}
+  .foot-links{display:flex;gap:26px}
+  .foot-links a{font-size:13.5px;color:var(--ink-soft);transition:color .2s}
+  .foot-links a:hover{color:var(--ink)}
+
+  .reveal{opacity:0;transform:translateY(18px);transition:opacity .9s cubic-bezier(.2,.8,.2,1),transform .9s cubic-bezier(.2,.8,.2,1)}
+  .reveal.in{opacity:1;transform:none}
+  @media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}.marquee{animation:none}}
 </style>
 </head>
 <body>
 
-<header class="nav">
+<nav class="top">
   <div class="wrap nav-inner">
-    <div class="brand"><img src="/icon.png" alt="logo" /> 星光手帐</div>
-    <nav class="nav-links">
-      <a href="#features">功能</a>
-      <a href="#why">特点</a>
-      <a href="#download">下载</a>
-      <a href="/" class="btn btn-primary">进入应用</a>
-    </nav>
+    <a href="/" class="wordmark"><span class="star">✦</span> 星光手帐 <span class="en">Starlight</span></a>
+    <div class="nav-links">
+      <a class="link" href="#features">功能</a>
+      <a class="link" href="#principles">理念</a>
+      <a class="link" href="/download.html">下载</a>
+      <a href="/" class="btn btn-dark">进入应用 →</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="hero-mark tnum">01</div>
+  <div class="wrap">
+    <span class="eyebrow reveal">私人部署 · 数据自有</span>
+    <h1 class="display reveal">把生活，<br>收进一本<em>安静</em>的手帐。</h1>
+    <p class="lede reveal">日记、计划、记账、阅读、健身——不是六个零散的 App，而是一本互相关联的手帐。它不推送、不追踪、不投广告，只在你需要时安静地等在那里。</p>
+    <div class="hero-cta reveal">
+      <a href="/" class="btn btn-dark">开始记录 →</a>
+      <a href="#features" class="btn btn-line">看看它能做什么</a>
+    </div>
+    <div class="hero-meta reveal">
+      <span><i class="dot"></i> 手机 / 平板 / 桌面自适应</span>
+      <span><i class="dot"></i> 可装成 App 离线使用</span>
+      <span><i class="dot"></i> 数据只存在你自己的服务器</span>
+    </div>
   </div>
 </header>
 
-<!-- HERO -->
-<section class="hero wrap">
-  <div class="badge"><span class="dot"></span> 私人部署 · 数据在自己手里</div>
-  <h1>把生活，收进一本<br/>温暖的手帐</h1>
-  <p class="slogan">日记、计划、记账、阅读、健身——星光手帐把你日常的每一面汇成一处，安静记录，温柔提醒，看得见自己一路的坚持。</p>
-  <div class="cta">
-    <a href="/" class="btn btn-primary">✨ 开始记录</a>
-    <a href="#features" class="btn btn-ghost">了解功能</a>
+<div class="strip">
+  <div class="marquee tnum">
+    <span>日记 Diary</span><span>计划 Plans</span><span>记账 Money</span><span>阅读 Reading</span><span>健身 Fitness</span><span>统计 Stats</span>
+    <span>日记 Diary</span><span>计划 Plans</span><span>记账 Money</span><span>阅读 Reading</span><span>健身 Fitness</span><span>统计 Stats</span>
   </div>
-  <p class="hero-meta">无需注册即可本地体验 · 支持手机 / 平板 / 桌面 · 可装成 App</p>
-</section>
+</div>
 
 <!-- FEATURES -->
-<section class="section wrap" id="features">
-  <h2>六大模块，陪你过好每一天</h2>
-  <p class="lead">不是一堆零散的工具，而是一本互相关联的手帐。</p>
-  <div class="grid">
-
-    <div class="card">
-      <div class="ic">📖</div>
-      <h3>日记</h3>
-      <p>带心情、天气和标签的每日书写，月历视图一眼看清写作轨迹，留住每个普通又特别的日子。</p>
-      <div class="tags"><span class="tag">心情天气</span><span class="tag">标签</span><span class="tag">月历</span></div>
+<section id="features">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <h2>六个模块，<br>一种连贯的生活。</h2>
+      <span class="idx">— 02 / 功能</span>
     </div>
 
-    <div class="card">
-      <div class="ic">✅</div>
-      <h3>计划</h3>
-      <p>轻重缓急分层管理，每日清单与长期目标一起推进，完成率看得见，拖延少一点，笃定多一点。</p>
-      <div class="tags"><span class="tag">优先级</span><span class="tag">完成率</span><span class="tag">每日清单</span></div>
-    </div>
+    <div class="features">
+      <article class="feature wide reveal">
+        <div class="num">01</div>
+        <div class="row">
+          <h3>Diary<span class="cn">日记 · 留住每一天的质地</span></h3>
+          <span class="glyph">D</span>
+        </div>
+        <p>带心情、天气与标签的每日书写，月历视图一眼看清写作的轨迹。不是社交动态，只写给未来的自己。</p>
+        <div class="tags"><i>心情 · 天气</i><i>标签</i><i>月历视图</i></div>
+      </article>
 
-    <div class="card">
-      <div class="ic">💰</div>
-      <h3>记账</h3>
-      <p>日历式记账、分类占比、预算提醒与逐月趋势，钱花去哪一目了然，结余红绿一眼分明。</p>
-      <div class="tags"><span class="tag">日历视图</span><span class="tag">预算</span><span class="tag">趋势图</span></div>
-    </div>
+      <article class="feature reveal">
+        <div class="num">02</div>
+        <div class="row"><h3>Plans<span class="cn">计划</span></h3><span class="glyph">P</span></div>
+        <p>轻重缓急分层管理，每日清单与长期目标一起推进。</p>
+        <div class="tags"><i>优先级</i><i>完成率</i></div>
+      </article>
 
-    <div class="card">
-      <div class="ic">📚</div>
-      <h3>阅读</h3>
-      <p>管理你的书架与阅读进度，内置 PDF 阅读器支持手势翻页，读书笔记和进度都归在一处。</p>
-      <div class="tags"><span class="tag">书架</span><span class="tag">进度</span><span class="tag">PDF 阅读</span></div>
-    </div>
+      <article class="feature reveal">
+        <div class="num">03</div>
+        <div class="row"><h3>Money<span class="cn">记账</span></h3><span class="glyph">M</span></div>
+        <p>日历式记账、分类占比、预算与逐月趋势，钱花去哪一目了然。</p>
+        <div class="tags"><i>日历视图</i><i>预算</i><i>趋势</i></div>
+      </article>
 
-    <div class="card">
-      <div class="ic">💪</div>
-      <h3>健身</h3>
-      <p>记录跑步、羽毛球、力量训练，按天合并训练次数，数据可与手机健康同步，坚持有迹可循。</p>
-      <div class="tags"><span class="tag">多运动类型</span><span class="tag">健康同步</span><span class="tag">趋势</span></div>
-    </div>
+      <article class="feature reveal">
+        <div class="num">04</div>
+        <div class="row"><h3>Reading<span class="cn">阅读</span></h3><span class="glyph">R</span></div>
+        <p>管理书架与阅读进度，内置 PDF 阅读器支持手势翻页，读书笔记归在一处。</p>
+        <div class="tags"><i>书架</i><i>进度</i><i>PDF</i></div>
+      </article>
 
-    <div class="card">
-      <div class="ic">📊</div>
-      <h3>统计</h3>
-      <p>日记、运动、记账、阅读、计划全年汇总，图表与数字串起一整年，复盘时给自己一个答案。</p>
-      <div class="tags"><span class="tag">年度总览</span><span class="tag">分类占比</span><span class="tag">逐月趋势</span></div>
-    </div>
+      <article class="feature wide reveal">
+        <div class="num">05</div>
+        <div class="row">
+          <h3>Fitness<span class="cn">健身 · 让坚持有迹可循</span></h3>
+          <span class="glyph">F</span>
+        </div>
+        <p>记录跑步、羽毛球、力量训练，同日多次训练自动合并计为一次，数据可与手机健康同步。运动不是数字游戏，是与自己的长期约定。</p>
+        <div class="tags"><i>多运动类型</i><i>健康同步</i><i>趋势</i></div>
+      </article>
 
-  </div>
-</section>
-
-<!-- WHY -->
-<section class="section wrap" id="why">
-  <h2>为什么是星光</h2>
-  <p class="lead">安静、克制、属于你自己。</p>
-  <div class="strip">
-    <div class="item">
-      <div class="big">🔒</div>
-      <div class="lab"><b style="color:#7c2d12">数据自己掌控</b><br/>私人云服务器部署，日记和账本不经过第三方平台。</div>
-    </div>
-    <div class="item">
-      <div class="big">📱</div>
-      <div class="lab"><b style="color:#7c2d12">全平台可用</b><br/>手机、平板、桌面浏览器自适应，可装成 App 离线使用。</div>
-    </div>
-    <div class="item">
-      <div class="big">🎨</div>
-      <div class="lab"><b style="color:#7c2d12">温暖无广告</b><br/>暖橙手帐风格，无广告无推送，只做你记录生活的背景。</div>
+      <article class="feature reveal">
+        <div class="num">06</div>
+        <div class="row"><h3>Stats<span class="cn">统计</span></h3><span class="glyph">S</span></div>
+        <p>日记、运动、记账、阅读全年汇总，用图表串起一整年。</p>
+        <div class="tags"><i>年度总览</i><i>逐月趋势</i></div>
+      </article>
     </div>
   </div>
 </section>
 
-<!-- DOWNLOAD -->
-<section class="section wrap" id="download">
-  <div class="download">
-    <h2>开始使用星光手帐</h2>
-    <p class="lead" style="margin-bottom:0">直接在浏览器中打开即可使用，也可以装到手机桌面。</p>
-    <div class="cta" style="margin-top:26px">
-      <a href="/" class="btn btn-primary">🌐 网页版直接进入</a>
-      <a href="/download.html" class="btn btn-ghost">📲 下载 Android App</a>
+<!-- PHILOSOPHY -->
+<section class="philosophy">
+  <div class="pnum tnum">03</div>
+  <div class="wrap">
+    <blockquote class="reveal">
+      大多数工具想<em>占用</em>你的注意力，<br>
+      星光只想帮你<em>安顿</em>生活。
+    </blockquote>
+    <p class="by reveal">— 设计理念</p>
+  </div>
+</section>
+
+<!-- PRINCIPLES -->
+<section id="principles">
+  <div class="wrap">
+    <div class="section-head reveal">
+      <h2>为什么是星光。</h2>
+      <span class="idx">— 04 / 理念</span>
     </div>
-    <div class="platforms">
-      <span class="chip">🤖 Android</span>
-      <span class="chip">🍎 iOS / Safari</span>
-      <span class="chip">💻 桌面浏览器</span>
+    <div class="principles reveal">
+      <div class="principle">
+        <div class="ic">01</div>
+        <h4>数据在你手里</h4>
+        <p>私人云服务器部署，日记、账本、记录不经过任何第三方平台。你拥有全部数据，也随时可以带走。</p>
+      </div>
+      <div class="principle">
+        <div class="ic">02</div>
+        <h4>全平台，离线可用</h4>
+        <p>手机、平板、桌面浏览器自适应，可添加到主屏幕像 App 一样使用，没有网络也能打开记录。</p>
+      </div>
+      <div class="principle">
+        <div class="ic">03</div>
+        <h4>安静，不打扰</h4>
+        <p>没有开屏广告、没有红点推送、没有算法推荐。它只是你打开时的一本手帐，合上就安静待着。</p>
+      </div>
     </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<section style="padding-top:0">
+  <div class="wrap">
+    <div class="stats-row reveal">
+      <div class="stat"><div class="big tnum">6</div><div class="lab">生活模块</div></div>
+      <div class="stat"><div class="big tnum">0</div><div class="lab">广告 · 追踪 · 推送</div></div>
+      <div class="stat"><div class="big tnum">100%</div><div class="lab">数据归你所有</div></div>
+      <div class="stat"><div class="big tnum">∞</div><div class="lab">记录的日子</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-block">
+  <div class="wrap">
+    <h2 class="reveal">开始写今天<em>这一页</em>。</h2>
+    <p class="reveal">在浏览器里直接打开就能用，也可以装到手机桌面。它会安静地陪你把日子过下去。</p>
+    <div class="hero-cta reveal">
+      <a href="/" class="btn btn-dark">进入星光手帐 →</a>
+      <a href="/download.html" class="btn btn-line">下载 Android App</a>
+    </div>
+    <p class="note">支持 Android · iOS / Safari 添加到主屏幕 · 桌面浏览器</p>
   </div>
 </section>
 
 <footer>
-  <div class="wrap">
-    用 <span class="heart">❤</span> 为自己而做 · 星光手帐 Starlight Planner<br/>
-    <a href="/">进入应用</a> &nbsp;·&nbsp; <a href="/download.html">下载 App</a>
+  <div class="wrap foot-inner">
+    <a href="/" class="wordmark"><span class="star">✦</span> 星光手帐 <span class="en">Starlight</span></a>
+    <div class="foot-links">
+      <a href="/">应用</a>
+      <a href="#features">功能</a>
+      <a href="/download.html">下载</a>
+      <a href="/about.html">介绍</a>
+    </div>
+    <span class="meta">用 ❤ 为自己而做 · Starlight Planner</span>
   </div>
 </footer>
+
+<script>
+  // 滚动渐显
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+  document.querySelectorAll('.reveal').forEach((el, i) => {
+    el.style.transitionDelay = (Math.min(i % 6, 5) * 60) + 'ms';
+    io.observe(el);
+  });
+</script>
 
 </body>
 </html>
