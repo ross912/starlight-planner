@@ -70,7 +70,7 @@ export default function StatsPage() {
           <span className="text-stone-600">📖 日记 <b className="text-orange-700">{stats.diary.total}</b> 篇</span>
           <span className="text-stone-600">💪 运动 <b className="text-orange-700">{stats.fitness.totalSessions}</b> 条</span>
           <span className="text-stone-600">📚 读完 <b className="text-orange-700">{stats.books.doneThisYear}</b> 本</span>
-          <span className="text-stone-600">💰 支出 <FitText className="text-rose-500" maxPx={14} smMaxPx={14} minPx={10} inline>¥{fenToYuan(stats.money.yearExpense)}</FitText></span>
+          <span className="text-stone-600">💰 支出 <FitText className="text-rose-500 font-semibold" maxPx={14} smMaxPx={14} minPx={10} inline>¥{fenToYuan(stats.money.yearExpense)}</FitText></span>
         </div>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-orange-100 pt-2">
           <span className="text-stone-600">📝 计划 · 完成量 <b className="text-orange-700">{totals.done}</b> 项</span>
@@ -237,15 +237,15 @@ export default function StatsPage() {
         <div className="grid grid-cols-3 gap-4">
           <div className="warm-card px-3.5 py-3 sm:px-5 sm:py-4">
             <p className="text-xs text-stone-500">本年支出</p>
-            <FitText className="mt-2 text-rose-500" maxPx={20} smMaxPx={24}>¥{fenToYuan(stats.money.yearExpense)}</FitText>
+            <FitText className="mt-2 text-rose-500 font-bold" maxPx={20} smMaxPx={24}>¥{fenToYuan(stats.money.yearExpense)}</FitText>
           </div>
           <div className="warm-card px-3.5 py-3 sm:px-5 sm:py-4">
             <p className="text-xs text-stone-500">本年收入</p>
-            <FitText className="mt-2 text-emerald-600" maxPx={20} smMaxPx={24}>¥{fenToYuan(stats.money.yearIncome)}</FitText>
+            <FitText className="mt-2 text-emerald-600 font-bold" maxPx={20} smMaxPx={24}>¥{fenToYuan(stats.money.yearIncome)}</FitText>
           </div>
           <div className="warm-card px-3.5 py-3 sm:px-5 sm:py-4">
             <p className="text-xs text-stone-500">本年结余</p>
-            <FitText className={`mt-2 ${stats.money.yearIncome - stats.money.yearExpense >= 0 ? 'text-orange-700' : 'text-rose-500'}`} maxPx={20} smMaxPx={24}>
+            <FitText className={`mt-2 font-bold ${stats.money.yearIncome - stats.money.yearExpense >= 0 ? 'text-orange-700' : 'text-rose-500'}`} maxPx={20} smMaxPx={24}>
               {stats.money.yearIncome - stats.money.yearExpense < 0 && '-'}¥{fenToYuan(Math.abs(stats.money.yearIncome - stats.money.yearExpense))}
             </FitText>
           </div>

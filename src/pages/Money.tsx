@@ -194,19 +194,19 @@ export default function MoneyPage() {
           <p className="text-xs text-stone-500 flex items-center gap-1.5">
             <TrendingDown size={13} className="text-rose-400" /> 本月支出
           </p>
-          <FitText className="mt-1.5 sm:mt-2 text-rose-500" maxPx={18} smMaxPx={24}>¥{fenToYuan(spent)}</FitText>
+          <FitText className="mt-1.5 sm:mt-2 text-rose-500 font-bold" maxPx={18} smMaxPx={24}>¥{fenToYuan(spent)}</FitText>
         </div>
         <div className="warm-card px-3.5 py-3 sm:px-5 sm:py-4">
           <p className="text-xs text-stone-500 flex items-center gap-1.5">
             <TrendingUp size={13} className="text-emerald-500" /> 本月收入
           </p>
-          <FitText className="mt-1.5 sm:mt-2 text-emerald-600" maxPx={18} smMaxPx={24}>¥{fenToYuan(stats?.income ?? 0)}</FitText>
+          <FitText className="mt-1.5 sm:mt-2 text-emerald-600 font-bold" maxPx={18} smMaxPx={24}>¥{fenToYuan(stats?.income ?? 0)}</FitText>
         </div>
         <div className="warm-card px-3.5 py-3 sm:px-5 sm:py-4">
           <p className="text-xs text-stone-500 flex items-center gap-1.5">
             <Wallet size={13} className="text-orange-500" /> 结余
           </p>
-          <FitText className={`mt-1.5 sm:mt-2 ${balance >= 0 ? 'text-orange-700' : 'text-rose-500'}`} maxPx={18} smMaxPx={24}>
+          <FitText className={`mt-1.5 sm:mt-2 font-bold ${balance >= 0 ? 'text-orange-700' : 'text-rose-500'}`} maxPx={18} smMaxPx={24}>
             {balance < 0 && '-'}¥{fenToYuan(Math.abs(balance))}
           </FitText>
         </div>
