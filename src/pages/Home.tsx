@@ -184,14 +184,17 @@ export default function Home() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <Link to="/money" className="warm-card px-4 py-3.5 sm:px-5 sm:py-4 block transition hover:-translate-y-0.5 hover:shadow-[0_6px_20px_-8px_rgba(194,120,40,0.4)]">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="min-w-0 flex-1 overflow-hidden">
               <p className="text-xs text-stone-500 flex items-center gap-1.5"><span>💰</span> 记账</p>
-              <p className={`mt-1 text-sm font-medium flex items-center gap-1 ${moneyBalance(stats) >= 0 ? 'text-stone-700' : 'text-rose-500'}`}>
-                <span>本月结余</span>
-                <FitText maxPx={14} smMaxPx={14} minPx={9} inline>
-                  {moneyBalance(stats) < 0 && '-'}¥{fenToYuan(Math.abs(moneyBalance(stats)))}
-                </FitText>
-              </p>
+              <p className="mt-1 text-sm font-medium text-stone-500 whitespace-nowrap">本月结余</p>
+              <FitText
+                className={`mt-0.5 ${moneyBalance(stats) >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}
+                maxPx={18}
+                smMaxPx={20}
+                minPx={11}
+              >
+                {moneyBalance(stats) < 0 && '-'}¥{fenToYuan(Math.abs(moneyBalance(stats)))}
+              </FitText>
             </div>
             <ArrowRight size={16} className="text-stone-300" />
           </div>
