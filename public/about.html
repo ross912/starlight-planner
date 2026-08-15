@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>星光手帐 · 把生活收进一本温暖的手帐</title>
+<meta name="description" content="星光手帐是一款私人部署的生活记录应用，集日记、计划、记账、阅读、健身于一体，数据完全由你自己掌控。" />
+<style>
+  :root{
+    --bg:#fdf6ec; --bg2:#fbeedd; --ink:#43301c; --sub:#8a7355;
+    --orange:#ea580c; --orange-d:#c2410c; --orange-l:#ffedd5;
+    --card:rgba(255,255,255,.86); --line:rgba(234,88,12,.14);
+    --shadow:0 10px 40px -12px rgba(194,120,40,.28);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    color:var(--ink); line-height:1.6;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, #ffe7c7 0%, rgba(255,231,199,0) 60%),
+      radial-gradient(900px 500px at -10% 20%, #ffd9b0 0%, rgba(255,217,176,0) 55%),
+      linear-gradient(180deg,var(--bg) 0%,var(--bg2) 100%);
+    background-attachment:fixed; min-height:100vh; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+
+  /* nav */
+  header.nav{position:sticky;top:0;z-index:20;backdrop-filter:blur(12px);
+    background:rgba(253,246,236,.72);border-bottom:1px solid var(--line)}
+  .nav-inner{display:flex;align-items:center;justify-content:space-between;height:62px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:.5px}
+  .brand img{width:34px;height:34px;border-radius:9px;box-shadow:0 4px 12px -4px rgba(234,88,12,.5)}
+  .nav-links{display:flex;gap:26px;align-items:center}
+  .nav-links a{color:var(--sub);text-decoration:none;font-size:14px;font-weight:500;transition:.2s}
+  .nav-links a:hover{color:var(--orange-d)}
+  .btn{display:inline-flex;align-items:center;gap:7px;padding:10px 20px;border-radius:999px;font-weight:700;
+    font-size:14px;text-decoration:none;transition:.2s;cursor:pointer;border:none}
+  .btn-primary{background:linear-gradient(180deg,#f97316,#ea580c);color:#fff;
+    box-shadow:0 6px 18px -6px rgba(234,88,12,.6)}
+  .btn-primary:hover{transform:translateY(-1px);box-shadow:0 10px 24px -6px rgba(234,88,12,.7)}
+  .btn-ghost{background:#fff;color:var(--orange-d);border:1px solid var(--line)}
+  .btn-ghost:hover{background:var(--orange-l)}
+  @media(max-width:640px){.nav-links a:not(.btn){display:none}}
+
+  /* hero */
+  .hero{padding:74px 0 56px;text-align:center}
+  .badge{display:inline-flex;align-items:center;gap:7px;padding:6px 15px;border-radius:999px;
+    background:#fff;border:1px solid var(--line);color:var(--orange-d);font-size:13px;font-weight:600;
+    box-shadow:var(--shadow);margin-bottom:24px}
+  .badge .dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.18)}
+  h1{font-size:clamp(34px,6vw,58px);font-weight:900;letter-spacing:1px;line-height:1.15;
+    background:linear-gradient(180deg,#7c2d12,#ea580c 60%,#f97316);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .slogan{margin-top:18px;font-size:clamp(16px,2.4vw,20px);color:var(--sub);max-width:620px;margin-left:auto;margin-right:auto}
+  .cta{margin-top:34px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+  .hero-meta{margin-top:22px;font-size:13px;color:var(--sub)}
+
+  /* features */
+  .section{padding:54px 0}
+  .section h2{text-align:center;font-size:clamp(24px,3.4vw,34px);font-weight:800;color:#7c2d12;margin-bottom:10px}
+  .section .lead{text-align:center;color:var(--sub);margin-bottom:40px;font-size:15px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  @media(max-width:860px){.grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:26px 24px;
+    box-shadow:var(--shadow);backdrop-filter:blur(8px);transition:.25s}
+  .card:hover{transform:translateY(-4px);box-shadow:0 18px 44px -14px rgba(194,120,40,.38)}
+  .card .ic{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+    font-size:25px;margin-bottom:16px;background:linear-gradient(160deg,#fff7ed,#ffedd5);
+    border:1px solid var(--line)}
+  .card h3{font-size:18px;font-weight:800;margin-bottom:8px;color:#7c2d12}
+  .card p{font-size:14px;color:var(--sub)}
+  .card .tags{margin-top:14px;display:flex;flex-wrap:wrap;gap:6px}
+  .tag{font-size:11.5px;padding:3px 10px;border-radius:999px;background:var(--orange-l);color:var(--orange-d);font-weight:600}
+
+  /* highlight strip */
+  .strip{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:8px}
+  @media(max-width:720px){.strip{grid-template-columns:1fr}}
+  .strip .item{text-align:center;padding:28px 20px;border-radius:20px;background:var(--card);
+    border:1px solid var(--line);box-shadow:var(--shadow)}
+  .strip .big{font-size:30px;font-weight:900;color:var(--orange-d);line-height:1}
+  .strip .lab{margin-top:10px;font-size:14px;color:var(--sub)}
+
+  /* download */
+  .download{background:linear-gradient(160deg,#fff7ed,#ffedd5);border:1px solid var(--line);
+    border-radius:28px;padding:44px 32px;text-align:center;box-shadow:var(--shadow)}
+  .download h2{color:#7c2d12;margin-bottom:10px}
+  .platforms{margin-top:24px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .chip{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;background:#fff;
+    border:1px solid var(--line);font-size:13px;font-weight:600;color:var(--sub)}
+
+  footer{padding:40px 0 50px;text-align:center;color:var(--sub);font-size:13px;border-top:1px solid var(--line);margin-top:40px}
+  footer a{color:var(--orange-d);text-decoration:none}
+  .heart{color:#ef4444}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-inner">
+    <div class="brand"><img src="/icon.png" alt="logo" /> 星光手帐</div>
+    <nav class="nav-links">
+      <a href="#features">功能</a>
+      <a href="#why">特点</a>
+      <a href="#download">下载</a>
+      <a href="/" class="btn btn-primary">进入应用</a>
+    </nav>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero wrap">
+  <div class="badge"><span class="dot"></span> 私人部署 · 数据在自己手里</div>
+  <h1>把生活，收进一本<br/>温暖的手帐</h1>
+  <p class="slogan">日记、计划、记账、阅读、健身——星光手帐把你日常的每一面汇成一处，安静记录，温柔提醒，看得见自己一路的坚持。</p>
+  <div class="cta">
+    <a href="/" class="btn btn-primary">✨ 开始记录</a>
+    <a href="#features" class="btn btn-ghost">了解功能</a>
+  </div>
+  <p class="hero-meta">无需注册即可本地体验 · 支持手机 / 平板 / 桌面 · 可装成 App</p>
+</section>
+
+<!-- FEATURES -->
+<section class="section wrap" id="features">
+  <h2>六大模块，陪你过好每一天</h2>
+  <p class="lead">不是一堆零散的工具，而是一本互相关联的手帐。</p>
+  <div class="grid">
+
+    <div class="card">
+      <div class="ic">📖</div>
+      <h3>日记</h3>
+      <p>带心情、天气和标签的每日书写，月历视图一眼看清写作轨迹，留住每个普通又特别的日子。</p>
+      <div class="tags"><span class="tag">心情天气</span><span class="tag">标签</span><span class="tag">月历</span></div>
+    </div>
+
+    <div class="card">
+      <div class="ic">✅</div>
+      <h3>计划</h3>
+      <p>轻重缓急分层管理，每日清单与长期目标一起推进，完成率看得见，拖延少一点，笃定多一点。</p>
+      <div class="tags"><span class="tag">优先级</span><span class="tag">完成率</span><span class="tag">每日清单</span></div>
+    </div>
+
+    <div class="card">
+      <div class="ic">💰</div>
+      <h3>记账</h3>
+      <p>日历式记账、分类占比、预算提醒与逐月趋势，钱花去哪一目了然，结余红绿一眼分明。</p>
+      <div class="tags"><span class="tag">日历视图</span><span class="tag">预算</span><span class="tag">趋势图</span></div>
+    </div>
+
+    <div class="card">
+      <div class="ic">📚</div>
+      <h3>阅读</h3>
+      <p>管理你的书架与阅读进度，内置 PDF 阅读器支持手势翻页，读书笔记和进度都归在一处。</p>
+      <div class="tags"><span class="tag">书架</span><span class="tag">进度</span><span class="tag">PDF 阅读</span></div>
+    </div>
+
+    <div class="card">
+      <div class="ic">💪</div>
+      <h3>健身</h3>
+      <p>记录跑步、羽毛球、力量训练，按天合并训练次数，数据可与手机健康同步，坚持有迹可循。</p>
+      <div class="tags"><span class="tag">多运动类型</span><span class="tag">健康同步</span><span class="tag">趋势</span></div>
+    </div>
+
+    <div class="card">
+      <div class="ic">📊</div>
+      <h3>统计</h3>
+      <p>日记、运动、记账、阅读、计划全年汇总，图表与数字串起一整年，复盘时给自己一个答案。</p>
+      <div class="tags"><span class="tag">年度总览</span><span class="tag">分类占比</span><span class="tag">逐月趋势</span></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- WHY -->
+<section class="section wrap" id="why">
+  <h2>为什么是星光</h2>
+  <p class="lead">安静、克制、属于你自己。</p>
+  <div class="strip">
+    <div class="item">
+      <div class="big">🔒</div>
+      <div class="lab"><b style="color:#7c2d12">数据自己掌控</b><br/>私人云服务器部署，日记和账本不经过第三方平台。</div>
+    </div>
+    <div class="item">
+      <div class="big">📱</div>
+      <div class="lab"><b style="color:#7c2d12">全平台可用</b><br/>手机、平板、桌面浏览器自适应，可装成 App 离线使用。</div>
+    </div>
+    <div class="item">
+      <div class="big">🎨</div>
+      <div class="lab"><b style="color:#7c2d12">温暖无广告</b><br/>暖橙手帐风格，无广告无推送，只做你记录生活的背景。</div>
+    </div>
+  </div>
+</section>
+
+<!-- DOWNLOAD -->
+<section class="section wrap" id="download">
+  <div class="download">
+    <h2>开始使用星光手帐</h2>
+    <p class="lead" style="margin-bottom:0">直接在浏览器中打开即可使用，也可以装到手机桌面。</p>
+    <div class="cta" style="margin-top:26px">
+      <a href="/" class="btn btn-primary">🌐 网页版直接进入</a>
+      <a href="/download.html" class="btn btn-ghost">📲 下载 Android App</a>
+    </div>
+    <div class="platforms">
+      <span class="chip">🤖 Android</span>
+      <span class="chip">🍎 iOS / Safari</span>
+      <span class="chip">💻 桌面浏览器</span>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    用 <span class="heart">❤</span> 为自己而做 · 星光手帐 Starlight Planner<br/>
+    <a href="/">进入应用</a> &nbsp;·&nbsp; <a href="/download.html">下载 App</a>
+  </div>
+</footer>
+
+</body>
+</html>
