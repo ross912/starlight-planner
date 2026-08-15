@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { ChevronLeft, ChevronRight, Pencil, Plus, Trash2, TrendingDown, TrendingUp, Wallet, Target, X } from 'lucide-react'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { api } from '../lib/api'
 import { EXPENSE_CATS, INCOME_CATS, fenToYuan, txCatOf } from '../lib/constants'
 import type { Transaction, TxStats, TxType } from '../types'
+import FitText from '../components/FitText'
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
 
@@ -26,75 +27,6 @@ function catLookup(type: 'expense' | 'income', key: string, customCats: CustomCa
   const builtin = txCatOf(type, key)
   if (builtin) return builtin
   return customCats.find((c) => c.type === type && c.key === key) ?? { key, label: key, emoji: '📦', color: '#a8a29e' }
-}
-
-/**
- * FitText — 自适应缩放字号，严格束缚在容器内不换行
- * 原理：用隐藏 span 在最大字号下测量文本自然宽度，
- *       与容器实际宽度比较，按比例缩放到刚好容纳。
- *       ResizeObserver 监听容器尺寸变化（横竖屏/窗口缩放）自动重算。
- */
-function FitText({
-  children,
-  maxPx = 18,
-  smMaxPx = 24,
-  minPx = 10,
-  className = '',
-}: {
-  children: ReactNode
-  maxPx?: number
-  smMaxPx?: number
-  minPx?: number
-  className?: string
-}) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const hiddenRef = useRef<HTMLSpanElement>(null)
-  const [fontSize, setFontSize] = useState(maxPx)
-
-  useLayoutEffect(() => {
-    const calc = () => {
-      const container = containerRef.current
-      const hidden = hiddenRef.current
-      if (!container || !hidden) return
-
-      const cw = container.clientWidth
-      if (cw === 0) return // 容器还没布局完，跳过
-
-      // ① 先试桌面端最大字号
-      hidden.style.fontSize = `${smMaxPx}px`
-      let tw = hidden.scrollWidth
-      if (tw <= cw) { setFontSize(smMaxPx); return }
-
-      // ② 再试手机端字号
-      hidden.style.fontSize = `${maxPx}px`
-      tw = hidden.scrollWidth
-      if (tw <= cw) { setFontSize(maxPx); return }
-
-      // ③ 都装不下 → 按比例缩放（留 2px 安全边距防亚像素溢出）
-      const scale = (cw - 2) / tw
-      setFontSize(Math.max(minPx, Math.floor(maxPx * scale)))
-    }
-
-    calc()
-    const ro = new ResizeObserver(calc)
-    if (containerRef.current) ro.observe(containerRef.current)
-    return () => ro.disconnect()
-  }, [children, maxPx, smMaxPx, minPx])
-
-  return (
-    <div ref={containerRef} className={className} style={{ overflow: 'hidden' }}>
-      <span style={{ fontSize: `${fontSize}px`, whiteSpace: 'nowrap', display: 'inline-block', fontWeight: 700 }}>
-        {children}
-      </span>
-      <span
-        ref={hiddenRef}
-        aria-hidden="true"
-        style={{ position: 'absolute', visibility: 'hidden', whiteSpace: 'nowrap', fontWeight: 700, pointerEvents: 'none', left: -9999 }}
-      >
-        {children}
-      </span>
-    </div>
-  )
 }
 
 export default function MoneyPage() {

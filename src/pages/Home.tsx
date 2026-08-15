@@ -4,6 +4,7 @@ import { ArrowRight, NotebookPen, Plus, Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
 import { api } from '../lib/api'
 import { fenToYuan, moodOf, weatherOf } from '../lib/constants'
+import FitText from '../components/FitText'
 import type { Diary, StatsOverview, Todo } from '../types'
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
@@ -185,8 +186,11 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-stone-500 flex items-center gap-1.5"><span>💰</span> 记账</p>
-              <p className={`mt-1 text-sm font-medium ${moneyBalance(stats) >= 0 ? 'text-stone-700' : 'text-rose-500'}`}>
-                本月结余 {moneyBalance(stats) < 0 && '-'}¥{fenToYuan(Math.abs(moneyBalance(stats)))}
+              <p className={`mt-1 text-sm font-medium flex items-center gap-1 ${moneyBalance(stats) >= 0 ? 'text-stone-700' : 'text-rose-500'}`}>
+                <span>本月结余</span>
+                <FitText maxPx={14} smMaxPx={14} minPx={9} inline>
+                  {moneyBalance(stats) < 0 && '-'}¥{fenToYuan(Math.abs(moneyBalance(stats)))}
+                </FitText>
               </p>
             </div>
             <ArrowRight size={16} className="text-stone-300" />
