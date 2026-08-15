@@ -1401,17 +1401,17 @@ app.get('/api/stats/overview', (req, res) => {
       doneThisYear: db.prepare("SELECT COUNT(*) AS c FROM books WHERE user_id = ? AND status='done' AND finished_at LIKE ?").get(uid, `${thisYear}-%`).c || 0,
     },
     fitness: {
-      todayCount: db.prepare('SELECT COUNT(*) AS c FROM workouts WHERE user_id = ? AND date = ?').get(uid, fmtDate(new Date())).c || 0,
+      todayCount: db.prepare(`SELECT ((SELECT COUNT(*) FROM workouts WHERE user_id = ? AND type != 'strength' AND date = ?) + (SELECT COUNT(DISTINCT date) FROM workouts WHERE user_id = ? AND type = 'strength' AND date = ?)) AS c`).get(uid, fmtDate(new Date()), uid, fmtDate(new Date())).c || 0,
       weekDays: db.prepare('SELECT COUNT(DISTINCT date) AS c FROM workouts WHERE user_id = ? AND date > ?').get(uid, fmtDate(new Date(Date.now() - 7 * 864e5))).c || 0,
-      monthSessions: db.prepare('SELECT COUNT(*) AS c FROM workouts WHERE user_id = ? AND date LIKE ?').get(uid, `${thisMonth}-%`).c || 0,
-      totalSessions: db.prepare('SELECT COUNT(*) AS c FROM workouts WHERE user_id = ?').get(uid).c || 0,
+      monthSessions: db.prepare(`SELECT ((SELECT COUNT(*) FROM workouts WHERE user_id = ? AND type != 'strength' AND date LIKE ?) + (SELECT COUNT(DISTINCT date) FROM workouts WHERE user_id = ? AND type = 'strength' AND date LIKE ?)) AS c`).get(uid, `${thisMonth}-%`, uid, `${thisMonth}-%`).c || 0,
+      totalSessions: db.prepare(`SELECT ((SELECT COUNT(*) FROM workouts WHERE user_id = ? AND type != 'strength') + (SELECT COUNT(DISTINCT date) FROM workouts WHERE user_id = ? AND type = 'strength')) AS c`).get(uid, uid).c || 0,
       trend: (() => {
         const arr = []
         for (let i = 13; i >= 0; i--) {
           const dd = new Date()
           dd.setDate(dd.getDate() - i)
           const key = fmtDate(dd)
-          arr.push({ date: key, count: db.prepare('SELECT COUNT(*) AS c FROM workouts WHERE user_id = ? AND date = ?').get(uid, key).c || 0 })
+          arr.push({ date: key, count: db.prepare(`SELECT ((SELECT COUNT(*) FROM workouts WHERE user_id = ? AND type != 'strength' AND date = ?) + (SELECT COUNT(DISTINCT date) FROM workouts WHERE user_id = ? AND type = 'strength' AND date = ?)) AS c`).get(uid, key, uid, key).c || 0 })
         }
         return arr
       })(),
